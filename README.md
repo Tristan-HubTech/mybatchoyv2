@@ -21,6 +21,25 @@ Laravel is a web application framework with expressive, elegant syntax. We belie
 
 Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
+## MyBatchoy setup
+
+Configure the database connection in the local environment, then run:
+
+```bash
+php artisan migrate --seed
+php artisan app:create-owner
+```
+
+The default seeder creates application roles only; it does not create accounts, default passwords, or sample stock. `InventorySeeder` contains sample inventory and should only be run intentionally in a non-production environment. Create the initial owner interactively with a unique password before allowing users to sign in.
+
+Staff can request access from the registration page. New requests are inactive by default; an owner can review them using the **Pending approval** filter in Staff Management and approve them to enable sign-in.
+
+## Business-owner assessment
+
+MyBatchoy is a suitable foundation for organizing store inventory. Before relying on it for daily operations, prioritize verifying stock transaction accuracy, staff permissions, audit coverage, and backup restoration.
+
+POS, multi-branch management, and automatic purchasing are not current goals and should remain future enhancements unless the business needs them. When evaluating the system, distinguish confirmed features from workflows that still need verification and from proposed enhancements.
+
 ## Learning Laravel
 
 Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
