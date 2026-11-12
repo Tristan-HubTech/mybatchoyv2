@@ -44,14 +44,16 @@ class StaffManagementTest extends TestCase
             'username' => 'new-staff',
             'email' => 'new-staff@example.com',
             'phone' => '09170000003',
-            'password' => 'a-strong-staff-password',
-            'password_confirmation' => 'a-strong-staff-password',
+            'password' => 'StaffPassword2026!',
+            'password_confirmation' => 'StaffPassword2026!',
+            'is_active' => '1',
         ]);
 
         $response->assertRedirect(route('owner.staff.index'));
         $created = User::where('username', 'new-staff')->firstOrFail();
         $this->assertSame('staff', $created->role->name);
-        $this->assertTrue(Hash::check('a-strong-staff-password', $created->password));
+        $this->assertTrue(Hash::check('StaffPassword2026!', $created->password));
+        $this->assertTrue($created->is_active);
         $this->assertDatabaseHas('audit_logs', [
             'user_id' => $this->owner->id,
             'action' => 'staff_created',
@@ -59,11 +61,65 @@ class StaffManagementTest extends TestCase
         ]);
     }
 
+    public function test_owner_can_create_an_inactive_staff_account_that_cannot_log_in(): void
+    {
+        $this->actingAs($this->owner)
+            ->post(route('owner.staff.store'), [
+                'name' => 'Inactive New Staff',
+                'username' => 'inactive-new-staff',
+                'email' => 'inactive-new-staff@example.com',
+                'password' => 'StaffPassword2026!',
+                'password_confirmation' => 'StaffPassword2026!',
+                'is_active' => '0',
+            ])->assertRedirect(route('owner.staff.index'));
+
+        $created = User::where('username', 'inactive-new-staff')->firstOrFail();
+        $this->assertFalse($created->is_active);
+
+        auth()->logout();
+        $this->post(route('login'), [
+            'username' => $created->username,
+            'password' => 'StaffPassword2026!',
+        ])->assertSessionHasErrors('username');
+        $this->assertGuest();
+    }
+
     public function test_staff_cannot_access_staff_management(): void
     {
         $this->actingAs($this->staffUser)
             ->get(route('owner.staff.index'))
             ->assertForbidden();
+
+        $this->post(route('owner.staff.store'), [
+            'name' => 'Unauthorized',
+            'username' => 'unauthorized',
+            'email' => 'unauthorized@example.com',
+            'password' => 'StaffPassword2026!',
+            'password_confirmation' => 'StaffPassword2026!',
+            'is_active' => '1',
+        ])->assertForbidden();
+    }
+
+    public function test_staff_creation_rejects_duplicate_username_and_email(): void
+    {
+        $this->actingAs($this->owner)
+            ->post(route('owner.staff.store'), [
+                'name' => 'Duplicate Username',
+                'username' => $this->staffUser->username,
+                'email' => 'new-email@example.com',
+                'password' => 'StaffPassword2026!',
+                'password_confirmation' => 'StaffPassword2026!',
+                'is_active' => '1',
+            ])->assertSessionHasErrors('username');
+
+        $this->post(route('owner.staff.store'), [
+            'name' => 'Duplicate Email',
+            'username' => 'new-unique-username',
+            'email' => $this->staffUser->email,
+            'password' => 'StaffPassword2026!',
+            'password_confirmation' => 'StaffPassword2026!',
+            'is_active' => '1',
+        ])->assertSessionHasErrors('email');
     }
 
     public function test_owner_sidebar_links_to_staff_management_and_profile_without_placeholders(): void
@@ -102,11 +158,11 @@ class StaffManagementTest extends TestCase
             ->assertRedirect(route('owner.staff.index'));
 
         $this->put(route('owner.staff.password', $this->staffUser), [
-            'password' => 'reset-staff-password-123',
-            'password_confirmation' => 'reset-staff-password-123',
+            'password' => 'ResetStaffPassword2026!',
+            'password_confirmation' => 'ResetStaffPassword2026!',
         ])->assertRedirect(route('owner.staff.edit', $this->staffUser));
 
-        $this->assertTrue(Hash::check('reset-staff-password-123', $this->staffUser->fresh()->password));
+        $this->assertTrue(Hash::check('ResetStaffPassword2026!', $this->staffUser->fresh()->password));
         $this->assertDatabaseHas('audit_logs', ['action' => 'staff_updated', 'model_id' => $this->staffUser->id]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'staff_activated', 'model_id' => $this->staffUser->id]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'staff_password_reset', 'model_id' => $this->staffUser->id]);

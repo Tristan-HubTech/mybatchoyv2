@@ -7,12 +7,20 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TransactionController extends Controller
 {
     public function index()
     {
-        $transactions = InventoryTransaction::with(['inventoryItem', 'user'])->latest()->get();
+        $query = InventoryTransaction::with(['inventoryItem', 'user'])->latest();
+
+        if (auth()->user()?->role?->name !== 'owner') {
+            $query->where('user_id', auth()->id());
+        }
+
+        $transactions = $query->get();
+
         return view('transactions.index', compact('transactions'));
     }
 
@@ -25,13 +33,12 @@ class TransactionController extends Controller
     {
         $validated = $request->validate([
             'inventory_item_id' => 'required|exists:inventory_items,id',
-            'quantity' => 'required|numeric|min:0.01',
+            'quantity' => 'required|numeric|min:0.01|max:999999999.999',
             'reason' => 'nullable|string|max:255',
         ]);
 
-        $item = InventoryItem::findOrFail($validated['inventory_item_id']);
-
-        DB::transaction(function () use ($item, $validated, $request) {
+        DB::transaction(function () use ($validated, $request) {
+            $item = InventoryItem::whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
             $previousQuantity = (float) $item->current_quantity;
             $newQuantity = $previousQuantity + (float) $validated['quantity'];
 
@@ -71,17 +78,17 @@ class TransactionController extends Controller
     {
         $validated = $request->validate([
             'inventory_item_id' => 'required|exists:inventory_items,id',
-            'quantity' => 'required|numeric|min:0.01',
+            'quantity' => 'required|numeric|min:0.01|max:999999999.999',
             'reason' => 'nullable|string|max:255',
         ]);
 
-        $item = InventoryItem::findOrFail($validated['inventory_item_id']);
+        DB::transaction(function () use ($validated, $request) {
+            $item = InventoryItem::whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
 
-        if ($item->current_quantity < $validated['quantity']) {
-            return back()->withErrors(['quantity' => 'Insufficient stock.']);
-        }
+            if ($item->current_quantity < $validated['quantity']) {
+                throw ValidationException::withMessages(['quantity' => 'Insufficient stock.']);
+            }
 
-        DB::transaction(function () use ($item, $validated, $request) {
             $previousQuantity = (float) $item->current_quantity;
             $newQuantity = $previousQuantity - (float) $validated['quantity'];
 
@@ -121,14 +128,14 @@ class TransactionController extends Controller
     {
         $validated = $request->validate([
             'inventory_item_id' => 'required|exists:inventory_items,id',
-            'current_quantity' => 'required|numeric|min:0',
+            'current_quantity' => 'required|numeric|min:0|max:999999999.999',
             'reason' => 'required|string|max:255',
         ]);
 
-        $item = InventoryItem::findOrFail($validated['inventory_item_id']);
-        $previousQuantity = (float) $item->current_quantity;
+        DB::transaction(function () use ($validated, $request) {
+            $item = InventoryItem::whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
+            $previousQuantity = (float) $item->current_quantity;
 
-        DB::transaction(function () use ($item, $validated, $request, $previousQuantity) {
             $item->update(['current_quantity' => (float) $validated['current_quantity'], 'last_counted_at' => now()]);
 
             InventoryTransaction::create([
@@ -165,17 +172,17 @@ class TransactionController extends Controller
     {
         $validated = $request->validate([
             'inventory_item_id' => 'required|exists:inventory_items,id',
-            'quantity' => 'required|numeric|min:0.01',
+            'quantity' => 'required|numeric|min:0.01|max:999999999.999',
             'reason' => 'required|string|max:255',
         ]);
 
-        $item = InventoryItem::findOrFail($validated['inventory_item_id']);
+        DB::transaction(function () use ($validated, $request) {
+            $item = InventoryItem::whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
 
-        if ($item->current_quantity < $validated['quantity']) {
-            return back()->withErrors(['quantity' => 'Spoilage quantity cannot exceed current stock.']);
-        }
+            if ($item->current_quantity < $validated['quantity']) {
+                throw ValidationException::withMessages(['quantity' => 'Spoilage quantity cannot exceed current stock.']);
+            }
 
-        DB::transaction(function () use ($item, $validated, $request) {
             $previousQuantity = (float) $item->current_quantity;
             $newQuantity = $previousQuantity - (float) $validated['quantity'];
 

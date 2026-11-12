@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\BusinessSetting;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\Unit;
@@ -13,7 +14,12 @@ class InventoryItemController extends Controller
 {
     public function index(Request $request)
     {
-        $search = trim((string) $request->input('search', ''));
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:100',
+            'category' => 'nullable|integer|exists:inventory_categories,id',
+        ]);
+
+        $search = trim((string) ($validated['search'] ?? ''));
 
         $query = InventoryItem::with(['category', 'unit'])
             ->select('inventory_items.*')
@@ -23,8 +29,8 @@ class InventoryItemController extends Controller
                         ->orWhere('inventory_items.sku', 'like', '%' . $search . '%');
                 });
             })
-            ->when($request->filled('category'), function ($q) use ($request) {
-                $q->where('inventory_items.category_id', $request->category);
+            ->when(!empty($validated['category']), function ($q) use ($validated) {
+                $q->where('inventory_items.category_id', $validated['category']);
             })
             ->distinct();
 
@@ -36,10 +42,14 @@ class InventoryItemController extends Controller
 
     public function create()
     {
+        $settings = BusinessSetting::find(1);
+
         return view('inventory.form', [
             'item' => null,
-            'categories' => InventoryCategory::orderBy('name')->get(),
-            'units' => Unit::orderBy('name')->get(),
+            'categories' => InventoryCategory::where('is_active', true)->orderBy('name')->get(),
+            'units' => Unit::where('is_active', true)->orderBy('name')->get(),
+            'defaultMinimumStockLevel' => $settings?->default_minimum_stock_level ?? 0,
+            'defaultReorderLevel' => $settings?->default_reorder_level ?? 0,
         ]);
     }
 
@@ -50,10 +60,10 @@ class InventoryItemController extends Controller
             'category_id' => 'required|exists:inventory_categories,id',
             'unit_id' => 'required|exists:units,id',
             'sku' => 'nullable|string|max:100|unique:inventory_items,sku',
-            'description' => 'nullable|string',
-            'current_quantity' => 'required|numeric|min:0',
-            'minimum_stock_level' => 'required|numeric|min:0',
-            'reorder_level' => 'nullable|numeric|min:0',
+            'description' => 'nullable|string|max:2000',
+            'current_quantity' => 'required|numeric|min:0|max:999999999.999',
+            'minimum_stock_level' => 'required|numeric|min:0|max:999999999.999',
+            'reorder_level' => 'nullable|numeric|min:0|max:999999999.999',
         ]);
 
         $validated['sku'] = $validated['sku'] ?? strtoupper(Str::slug($validated['name']) . '-' . random_int(100, 999));
@@ -78,8 +88,16 @@ class InventoryItemController extends Controller
     {
         return view('inventory.form', [
             'item' => $item,
-            'categories' => InventoryCategory::orderBy('name')->get(),
-            'units' => Unit::orderBy('name')->get(),
+            'categories' => InventoryCategory::where('is_active', true)
+                ->orWhere('id', $item->category_id)
+                ->orderBy('name')
+                ->get(),
+            'units' => Unit::where('is_active', true)
+                ->orWhere('id', $item->unit_id)
+                ->orderBy('name')
+                ->get(),
+            'defaultMinimumStockLevel' => 0,
+            'defaultReorderLevel' => 0,
         ]);
     }
 
@@ -90,10 +108,10 @@ class InventoryItemController extends Controller
             'category_id' => 'required|exists:inventory_categories,id',
             'unit_id' => 'required|exists:units,id',
             'sku' => 'nullable|string|max:100|unique:inventory_items,sku,' . $item->id,
-            'description' => 'nullable|string',
-            'current_quantity' => 'required|numeric|min:0',
-            'minimum_stock_level' => 'required|numeric|min:0',
-            'reorder_level' => 'nullable|numeric|min:0',
+            'description' => 'nullable|string|max:2000',
+            'current_quantity' => 'required|numeric|min:0|max:999999999.999',
+            'minimum_stock_level' => 'required|numeric|min:0|max:999999999.999',
+            'reorder_level' => 'nullable|numeric|min:0|max:999999999.999',
         ]);
 
         $item->update($validated);

@@ -17,7 +17,7 @@
                     <div class="d-flex gap-2">
                         <span class="accent fw-bold" style="font-size: 1rem;">ℹ</span>
                         <div class="muted" style="font-size: 0.8rem; line-height: 1.4;">
-                            Enter your registered username or email. We will generate a secure <strong>6-digit verification code</strong> (valid for 15 minutes).
+                            Enter your registered email. If an active account matches, a secure <strong>6-digit verification code</strong> will be emailed and expire in 10 minutes.
                         </div>
                     </div>
                 </div>
@@ -41,8 +41,8 @@
                 <form method="POST" action="{{ route('password.email') }}">
                     @csrf
                     <div class="mb-3">
-                        <label for="identifier" class="form-label small fw-semibold">Username or Email</label>
-                        <input id="identifier" type="text" name="identifier" class="form-control form-control-sm" value="{{ old('identifier') }}" placeholder="e.g. owneradmin or owner@mybatchoy.com" required autofocus>
+                        <label for="email" class="form-label small fw-semibold">Email address</label>
+                        <input id="email" type="email" name="email" class="form-control form-control-sm" value="{{ old('email') }}" placeholder="name@example.com" required autofocus>
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold mb-3">Send Security Code</button>

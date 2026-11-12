@@ -56,11 +56,11 @@
                                 <td>
                                     <div class="d-flex flex-wrap gap-2">
                                         <a href="{{ route('owner.staff.edit', $member) }}" class="btn btn-sm btn-outline-primary">Edit</a>
-                                        <form method="POST" action="{{ route('owner.staff.status', $member) }}">
+                                        <form method="POST" action="{{ route('owner.staff.status', $member) }}" data-status-form data-confirm-message="Are you sure you want to {{ $member->is_active ? 'deactivate' : 'activate' }} {{ $member->name }}?">
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="is_active" value="{{ $member->is_active ? '0' : '1' }}">
-                                            <button class="btn btn-sm btn-outline-primary" type="submit">{{ $member->is_active ? 'Deactivate' : 'Activate' }}</button>
+                                            <button class="btn btn-sm btn-outline-primary" type="submit" data-loading-text="{{ $member->is_active ? 'Deactivating...' : 'Activating...' }}">{{ $member->is_active ? 'Deactivate' : 'Activate' }}</button>
                                         </form>
                                     </div>
                                 </td>
@@ -78,6 +78,21 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-status-form]').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!window.confirm(form.dataset.confirmMessage)) {
+                    event.preventDefault();
+                    return;
+                }
+
+                const button = form.querySelector('button[type="submit"]');
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = button.dataset.loadingText || 'Saving...';
+                }
+            });
+        });
+
         const form = document.getElementById('staffFilterForm');
         if (form) {
             form.addEventListener('submit', function () {

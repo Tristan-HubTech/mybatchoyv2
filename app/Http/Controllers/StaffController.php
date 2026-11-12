@@ -6,8 +6,11 @@ use App\Models\AuditLog;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class StaffController extends Controller
 {
@@ -53,20 +56,25 @@ class StaffController extends Controller
             'username' => 'required|string|max:255|alpha_dash|unique:users,username',
             'email' => 'required|email|max:255|unique:users,email',
             'phone' => 'nullable|string|max:32',
-            'password' => 'required|string|min:10|confirmed',
+            'password' => ['required', 'string', Password::min(12)->letters()->mixedCase()->numbers()->symbols(), 'confirmed'],
+            'is_active' => 'required|boolean',
         ]);
 
-        $staff = User::create([
-            'role_id' => Role::where('name', 'staff')->firstOrFail()->id,
-            'name' => $validated['name'],
-            'username' => $validated['username'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'] ?? null,
-            'password' => Hash::make($validated['password']),
-            'is_active' => true,
-        ]);
+        $staff = DB::transaction(function () use ($validated, $request): User {
+            $staff = User::create([
+                'role_id' => Role::where('name', 'staff')->firstOrFail()->id,
+                'name' => $validated['name'],
+                'username' => $validated['username'],
+                'email' => $validated['email'],
+                'phone' => $validated['phone'] ?? null,
+                'password' => Hash::make($validated['password']),
+                'is_active' => (bool) $validated['is_active'],
+            ]);
 
-        $this->recordAccountChange($request, $staff, 'staff_created', 'Staff account created.');
+            $this->recordAccountChange($request, $staff, 'staff_created', 'Staff account created.');
+
+            return $staff;
+        });
 
         return redirect()->route('owner.staff.index')->with('success', 'Staff account created.');
     }
@@ -99,13 +107,21 @@ class StaffController extends Controller
         $isActive = (bool) $validated['is_active'];
 
         if ($staffMember->is_active !== $isActive) {
-            $staffMember->update(['is_active' => $isActive]);
-            $this->recordAccountChange(
-                $request,
-                $staffMember,
-                $isActive ? 'staff_activated' : 'staff_deactivated',
-                $isActive ? 'Staff account activated.' : 'Staff account deactivated.'
-            );
+            DB::transaction(function () use ($staffMember, $isActive, $request): void {
+                $attributes = ['is_active' => $isActive];
+                if (!$isActive) {
+                    $attributes['remember_token'] = Str::random(60);
+                    DB::table('password_resets')->where('email', $staffMember->email)->delete();
+                }
+
+                $staffMember->forceFill($attributes)->save();
+                $this->recordAccountChange(
+                    $request,
+                    $staffMember,
+                    $isActive ? 'staff_activated' : 'staff_deactivated',
+                    $isActive ? 'Staff account activated.' : 'Staff account deactivated.'
+                );
+            });
         }
 
         return redirect()->route('owner.staff.index')->with('success', 'Staff account status updated.');
@@ -115,11 +131,18 @@ class StaffController extends Controller
     {
         $staffMember = $this->findStaff($staff);
         $validated = $request->validate([
-            'password' => 'required|string|min:10|confirmed',
+            'password' => ['required', 'string', Password::min(12)->letters()->mixedCase()->numbers()->symbols(), 'confirmed'],
         ]);
 
-        $staffMember->update(['password' => Hash::make($validated['password'])]);
-        $this->recordAccountChange($request, $staffMember, 'staff_password_reset', 'Staff password reset by an owner.');
+        DB::transaction(function () use ($staffMember, $validated, $request): void {
+            $staffMember->forceFill([
+                'password' => Hash::make($validated['password']),
+                'remember_token' => Str::random(60),
+            ])->save();
+
+            DB::table('password_resets')->where('email', $staffMember->email)->delete();
+            $this->recordAccountChange($request, $staffMember, 'staff_password_reset', 'Staff password reset by an owner.');
+        });
 
         return redirect()->route('owner.staff.edit', $staffMember)->with('success', 'Staff password reset.');
     }

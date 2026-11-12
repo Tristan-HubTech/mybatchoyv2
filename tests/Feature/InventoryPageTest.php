@@ -76,4 +76,19 @@ class InventoryPageTest extends TestCase
         $this->assertSame(2, InventoryItem::count());
         $this->assertSame(2, InventoryItem::query()->select('sku')->distinct()->count());
     }
+
+    public function test_inventory_item_edit_includes_its_inactive_category_and_unit(): void
+    {
+        $owner = User::where('username', 'owneradmin')->firstOrFail();
+        $item = InventoryItem::where('sku', 'BEEF-001')->firstOrFail();
+
+        $item->category->update(['is_active' => false]);
+        $item->unit->update(['is_active' => false]);
+
+        $response = $this->actingAs($owner)->get(route('owner.inventory.edit', $item));
+
+        $response->assertOk()
+            ->assertSee('value="' . $item->category_id . '" selected', false)
+            ->assertSee('value="' . $item->unit_id . '" selected', false);
+    }
 }

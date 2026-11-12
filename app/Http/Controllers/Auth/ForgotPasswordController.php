@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PasswordResetCode;
 use App\Models\AuditLog;
 use App\Models\User;
 use Carbon\Carbon;
@@ -10,12 +11,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class ForgotPasswordController extends Controller
 {
+    private const RESET_CODE_MINUTES = 10;
+
+    private const RATE_LIMIT_SECONDS = 900;
+
     public function __construct()
     {
         $this->middleware('guest');
@@ -28,155 +36,184 @@ class ForgotPasswordController extends Controller
 
     public function sendResetCode(Request $request)
     {
-        $request->validate([
-            'identifier' => 'required|string',
+        $validated = $request->validate([
+            'email' => 'required|email|max:255',
         ]);
 
-        $ip = $request->ip();
-        $rateKey = 'password-reset-request:' . $ip;
+        $email = mb_strtolower(trim($validated['email']));
+        $ipKey = 'password-reset-request:ip:' . $request->ip();
+        $accountKey = $this->accountRateLimitKey('password-reset-request', $email);
+        $response = $this->genericResetResponse();
 
-        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
-            $seconds = RateLimiter::availableIn($rateKey);
-            throw ValidationException::withMessages([
-                'identifier' => ["Too many code requests from this device. Please try again in {$seconds} seconds."],
-            ]);
+        if (RateLimiter::tooManyAttempts($ipKey, 5) || RateLimiter::tooManyAttempts($accountKey, 3)) {
+            return $response;
         }
-        RateLimiter::hit($rateKey, 900); // 15-minute window
 
-        $identifier = trim($request->input('identifier'));
+        RateLimiter::hit($ipKey, self::RATE_LIMIT_SECONDS);
+        RateLimiter::hit($accountKey, self::RATE_LIMIT_SECONDS);
 
-        $user = User::where('is_active', true)
-            ->where(function ($q) use ($identifier) {
-                $q->where('email', $identifier)
-                  ->orWhere('username', $identifier);
-            })
-            ->first();
+        $user = User::where('email', $email)->where('is_active', true)->first();
+        if (!$user) {
+            return $response;
+        }
 
-        if ($user) {
-            // Cryptographically secure 6-digit code
-            $code = (string) random_int(100000, 999999);
+        $transport = config('mail.mailers.' . config('mail.default') . '.transport');
+        if (in_array($transport, ['log', 'failover', 'array'], true)) {
+            Log::warning('Password recovery email not sent because the configured mail transport may log message contents.');
 
-            // Store hashed code in database (never plain text)
+            return $response;
+        }
+
+        $code = (string) random_int(100000, 999999);
+        $tokenHash = Hash::make($code);
+
+        DB::transaction(function () use ($user, $tokenHash, $request): void {
             DB::table('password_resets')->updateOrInsert(
                 ['email' => $user->email],
                 [
-                    'token' => Hash::make($code),
+                    'token' => $tokenHash,
                     'created_at' => now(),
                 ]
             );
 
-            // Audit log the security code request
             AuditLog::create([
                 'user_id' => $user->id,
                 'action' => 'password_reset_code_requested',
                 'model_type' => User::class,
                 'model_id' => $user->id,
-                'details' => 'Secure 6-digit password reset verification code generated.',
-                'ip_address' => $ip,
+                'details' => 'A one-time password reset code was requested.',
+                'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
+        });
 
-            Log::info("Password reset code for user [{$user->username} / {$user->email}]: {$code}");
-
+        try {
+            Mail::to($user->email)->send(new PasswordResetCode($code));
             session(['password_reset_email' => $user->email]);
-
-            // In local/testing development, provide the code directly for testing convenience
-            if (app()->environment('local', 'testing')) {
-                session()->flash('security_code_demo', $code);
-            }
+        } catch (Throwable $exception) {
+            DB::table('password_resets')
+                ->where('email', $user->email)
+                ->where('token', $tokenHash)
+                ->delete();
+            Log::error('Password reset email delivery failed.', [
+                'exception' => $exception::class,
+            ]);
         }
 
-        return redirect()->route('password.reset')->with(
-            'status',
-            'If an active account is associated with this username or email, a 6-digit security code has been generated. The code expires in 15 minutes.'
-        );
+        return $response;
     }
 
-    public function showResetForm(Request $request)
+    public function showResetForm()
     {
-        $email = $request->query('email', session('password_reset_email', ''));
+        $email = session('password_reset_email', '');
+
         return view('auth.reset-password', compact('email'));
     }
 
     public function resetPassword(Request $request)
     {
-        $ip = $request->ip();
-        $rateKey = 'password-reset-verify:' . $ip;
-
-        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
-            $seconds = RateLimiter::availableIn($rateKey);
-            throw ValidationException::withMessages([
-                'code' => ["Too many failed verification attempts. Please wait {$seconds} seconds."],
-            ]);
-        }
-
-        $request->validate([
-            'email' => 'required|email',
+        $validated = $request->validate([
+            'email' => 'required|email|max:255',
             'code' => 'required|digits:6',
-            'password' => ['required', 'string', Password::min(8)->letters()->numbers(), 'confirmed'],
+            'password' => [
+                'required',
+                'string',
+                Password::min(12)->letters()->mixedCase()->numbers()->symbols(),
+                'confirmed',
+            ],
         ]);
 
-        $email = trim($request->input('email'));
-        $code = trim($request->input('code'));
+        $email = mb_strtolower(trim($validated['email']));
+        $ipKey = 'password-reset-verify:ip:' . $request->ip();
+        $accountKey = $this->accountRateLimitKey('password-reset-verify', $email);
 
-        $record = DB::table('password_resets')->where('email', $email)->first();
-
-        if (!$record) {
-            RateLimiter::hit($rateKey, 900);
+        if (RateLimiter::tooManyAttempts($ipKey, 5) || RateLimiter::tooManyAttempts($accountKey, 5)) {
             throw ValidationException::withMessages([
-                'code' => ['No active reset code found for this email. Please request a new code.'],
+                'code' => ['Too many verification attempts. Request a new code and try again later.'],
             ]);
         }
 
-        // Expire after 15 minutes
-        if (Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
+        $code = trim($validated['code']);
+
+        $user = DB::transaction(function () use ($email, $code, $validated, $request): ?User {
+            $record = DB::table('password_resets')
+                ->where('email', $email)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$record) {
+                return null;
+            }
+
+            if (Carbon::parse($record->created_at)->addMinutes(self::RESET_CODE_MINUTES)->isPast()) {
+                DB::table('password_resets')->where('email', $email)->delete();
+
+                return null;
+            }
+
+            if (!Hash::check($code, $record->token)) {
+                return null;
+            }
+
+            $user = User::where('email', $email)
+                ->where('is_active', true)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$user) {
+                DB::table('password_resets')->where('email', $email)->delete();
+
+                return null;
+            }
+
+            $user->forceFill([
+                'password' => Hash::make($validated['password']),
+                'remember_token' => Str::random(60),
+            ])->save();
+
             DB::table('password_resets')->where('email', $email)->delete();
-            RateLimiter::hit($rateKey, 900);
-            throw ValidationException::withMessages([
-                'code' => ['This security code has expired (valid for 15 minutes). Please request a new one.'],
+            AuditLog::create([
+                'user_id' => $user->id,
+                'action' => 'password_reset_completed',
+                'model_type' => User::class,
+                'model_id' => $user->id,
+                'details' => 'Password successfully reset using a one-time email code.',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
-        }
 
-        // Verify cryptographically hashed code
-        if (!Hash::check($code, $record->token)) {
-            RateLimiter::hit($rateKey, 900);
-            throw ValidationException::withMessages([
-                'code' => ['Invalid 6-digit security code. Please check and try again.'],
-            ]);
-        }
-
-        $user = User::where('email', $email)->where('is_active', true)->first();
+            return $user;
+        });
 
         if (!$user) {
+            RateLimiter::hit($ipKey, self::RATE_LIMIT_SECONDS);
+            RateLimiter::hit($accountKey, self::RATE_LIMIT_SECONDS);
+
             throw ValidationException::withMessages([
-                'email' => ['No active account found for this email address.'],
+                'code' => ['The code is invalid or expired. Request a new code and try again.'],
             ]);
         }
 
-        // Update password with secure bcrypt hash
-        $user->update([
-            'password' => Hash::make($request->input('password')),
-        ]);
-
-        // Invalidate the code immediately (one-time use)
-        DB::table('password_resets')->where('email', $email)->delete();
-        RateLimiter::clear($rateKey);
+        RateLimiter::clear($ipKey);
+        RateLimiter::clear($accountKey);
         session()->forget('password_reset_email');
-
-        // Audit the password reset completion
-        AuditLog::create([
-            'user_id' => $user->id,
-            'action' => 'password_reset_completed',
-            'model_type' => User::class,
-            'model_id' => $user->id,
-            'details' => 'Password successfully reset using 6-digit verification code.',
-            'ip_address' => $ip,
-            'user_agent' => $request->userAgent(),
-        ]);
 
         return redirect()->route('login')->with(
             'success',
-            'Password reset successful! You can now sign in with your new password.'
+            'Password reset successful. You can now sign in with your new password.'
         );
+    }
+
+    private function genericResetResponse()
+    {
+        return redirect()->route('password.reset')->with(
+            'status',
+            'If an active account matches that email address, recovery instructions will be sent when email delivery is configured.'
+        );
+    }
+
+    private function accountRateLimitKey(string $operation, string $email): string
+    {
+        return $operation . ':account:' . hash('sha256', $email);
     }
 }

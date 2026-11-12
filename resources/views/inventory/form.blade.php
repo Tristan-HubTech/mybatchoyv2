@@ -44,11 +44,11 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Minimum stock</label>
-                    <input type="number" step="0.001" class="form-control" name="minimum_stock_level" value="{{ old('minimum_stock_level', $item->minimum_stock_level ?? 0) }}" required>
+                    <input type="number" step="0.001" class="form-control" name="minimum_stock_level" value="{{ old('minimum_stock_level', $item->minimum_stock_level ?? $defaultMinimumStockLevel) }}" required>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Reorder level</label>
-                    <input type="number" step="0.001" class="form-control" name="reorder_level" value="{{ old('reorder_level', $item->reorder_level ?? 0) }}">
+                    <input type="number" step="0.001" class="form-control" name="reorder_level" value="{{ old('reorder_level', $item->reorder_level ?? $defaultReorderLevel) }}">
                 </div>
                 <div class="col-12">
                     <label class="form-label">Description</label>

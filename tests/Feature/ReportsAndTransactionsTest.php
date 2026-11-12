@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PDO;
 use Tests\TestCase;
 
 class ReportsAndTransactionsTest extends TestCase
@@ -99,6 +100,47 @@ class ReportsAndTransactionsTest extends TestCase
         $sqlResponse = $this->actingAs($this->owner)->get(route('owner.backup.download'));
         $sqlResponse->assertOk();
         $this->assertTrue(str_contains($sqlResponse->headers->get('content-type'), 'application/sql'));
+        $sqlResponse->streamedContent();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $this->owner->id,
+            'action' => 'database_backup_downloaded',
+        ]);
+        $this->get(route('owner.backup.index'))
+            ->assertOk()
+            ->assertSee('Recent backup exports')
+            ->assertSee('Export generated');
+    }
+
+    public function test_sqlite_backup_restores_into_a_separate_temporary_database(): void
+    {
+        $this->item->update(['description' => "Owner's sample \\\\ inventory"]);
+
+        $response = $this->actingAs($this->owner)->get(route('owner.backup.download'));
+        $backupSql = $response->streamedContent();
+        $restorePath = tempnam(sys_get_temp_dir(), 'mybatchoy-restore-');
+        $this->assertNotFalse($restorePath);
+
+        try {
+            $restoreDb = new PDO('sqlite:' . $restorePath);
+            $restoreDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $restoreDb->exec($backupSql);
+
+            $restoredDescription = $restoreDb->query(
+                "SELECT description FROM inventory_items WHERE id = " . (int) $this->item->id
+            )->fetchColumn();
+
+            $this->assertSame("Owner's sample \\\\ inventory", $restoredDescription);
+            $this->assertSame(
+                'Pork Belly',
+                $restoreDb->query("SELECT name FROM inventory_items WHERE id = " . (int) $this->item->id)->fetchColumn()
+            );
+            $restoreDb = null;
+        } finally {
+            if (is_file($restorePath)) {
+                unlink($restorePath);
+            }
+        }
     }
 
     public function test_public_menu_and_marketing_routes_redirect_to_internal_system(): void

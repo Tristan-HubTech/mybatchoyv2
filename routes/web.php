@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryItemController;
+use App\Http\Controllers\InventorySettingsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReportController;
@@ -30,7 +31,7 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword'])->name('password.update');
 });
 
-Route::middleware(['auth', 'active'])->group(function () {
+Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
@@ -76,6 +77,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('/owner/staff/{staff}/password', [StaffController::class, 'resetPassword'])->name('owner.staff.password');
         Route::get('/owner/settings', [SettingsController::class, 'index'])->name('owner.settings.index');
         Route::put('/owner/settings', [SettingsController::class, 'update'])->name('owner.settings.update');
+        Route::post('/owner/settings/inventory/categories', [InventorySettingsController::class, 'storeCategory'])->name('owner.settings.categories.store');
+        Route::put('/owner/settings/inventory/categories/{category}', [InventorySettingsController::class, 'updateCategory'])->name('owner.settings.categories.update');
+        Route::patch('/owner/settings/inventory/categories/{category}/status', [InventorySettingsController::class, 'updateCategoryStatus'])->name('owner.settings.categories.status');
+        Route::post('/owner/settings/inventory/units', [InventorySettingsController::class, 'storeUnit'])->name('owner.settings.units.store');
+        Route::put('/owner/settings/inventory/units/{unit}', [InventorySettingsController::class, 'updateUnit'])->name('owner.settings.units.update');
+        Route::patch('/owner/settings/inventory/units/{unit}/status', [InventorySettingsController::class, 'updateUnitStatus'])->name('owner.settings.units.status');
         Route::get('/owner/reports', [ReportController::class, 'index'])->name('owner.reports.index');
         Route::get('/owner/reports/export', [ReportController::class, 'exportCsv'])->name('owner.reports.export');
         Route::get('/owner/backup', [BackupController::class, 'index'])->name('owner.backup.index');

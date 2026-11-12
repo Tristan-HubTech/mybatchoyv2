@@ -23,16 +23,30 @@ Laravel is accessible, powerful, and provides tools required for large, robust a
 
 ## MyBatchoy setup
 
-Configure the database connection in the local environment, then run:
+Configure the database connection in the local environment, then create the schema and initial Owner/Admin account:
 
 ```bash
-php artisan migrate --seed
+php artisan migrate
 php artisan app:create-owner
 ```
 
-The default seeder creates application roles only; it does not create accounts, default passwords, or sample stock. `InventorySeeder` contains sample inventory and should only be run intentionally in a non-production environment. Create the initial owner interactively with a unique password before allowing users to sign in.
+The owner setup command securely prompts for account details and refuses to create another owner once one exists. It is a command-line setup process, not a public web page. `RoleSeeder` creates only the owner/staff roles. `InventorySeeder` contains sample inventory and should only be run intentionally in a non-production environment.
 
-Staff can request access from the registration page. New requests are inactive by default; an owner can review them using the **Pending approval** filter in Staff Management and approve them to enable sign-in.
+There is no public registration. An authenticated Owner/Admin creates staff accounts from Staff Management and chooses their initial active status. To send password-reset codes, configure Laravel mail with a real SMTP or supported provider; do not use `log`, `array`, or `failover` mail transports for recovery codes. Set `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_ENCRYPTION`, and `MAIL_FROM_ADDRESS` in the private environment configuration.
+
+Session cookies are HttpOnly and SameSite=Lax. Secure cookies default on in production and off in local/test environments; set `SESSION_SECURE_COOKIE=true` explicitly when deploying behind HTTPS. The default idle timeout is 20 minutes and an Owner/Admin can adjust it from Settings (5–240 minutes). Configure Laravel's trusted proxy settings correctly when terminating TLS at a reverse proxy.
+
+Business logos are stored on Laravel's public disk. Run `php artisan storage:link` once per deployment so the stored logo can be displayed. Settings also stores default stock thresholds used when creating inventory items and supports editing/deactivating inventory categories and units. Inventory email alerts and expiration warnings are not configured; low/out-of-stock conditions remain visible on the dashboards. MFA is not implemented.
+
+### Backup restore safety
+
+The in-app backup is streamed to the administrator and is not retained on the server. Keep each downloaded file in an access-controlled location. Before restoring a MySQL/MariaDB export, first create a disposable database on an isolated test instance (for example `mybatchoy_restore_test`), then import the file only into that target:
+
+```bash
+mysql --host=TEST_DB_HOST --user=TEST_DB_USER --password mybatchoy_restore_test < mybatchoy_db_backup.sql
+```
+
+The client prompts for the password; do not put credentials in the command line. Point a separate local/staging application configuration at that disposable database, run smoke checks, and verify representative table counts and records. Never use the production database credentials or target when testing restoration. The automated SQLite test restores an export to a separate temporary SQLite file; MySQL/MariaDB restoration still requires a staging-instance test. SQLite exports use SQLite syntax and must be restored with SQLite tooling.
 
 ## Business-owner assessment
 

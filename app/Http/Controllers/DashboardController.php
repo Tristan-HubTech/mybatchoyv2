@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AuditLog;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\Purchase;
@@ -117,6 +116,7 @@ class DashboardController extends Controller
     public function staffDashboard(Request $request)
     {
         [$startDate, $endDate, $rangeKey, $rangeLabel] = $this->resolveDateRange($request);
+        $staffUserId = (int) Auth::id();
 
         // Summary counts via direct database aggregations
         $totalItemsCount = InventoryItem::where('is_active', true)->count();
@@ -131,11 +131,12 @@ class DashboardController extends Controller
             ->where('current_quantity', '<=', 0)
             ->count();
 
-        // Period movements count (Staff sees operational activity rather than purchase costs)
-        $periodMovementsCount = InventoryTransaction::whereBetween('transaction_date', [
-            $startDate->copy()->startOfDay(),
-            $endDate->copy()->endOfDay(),
-        ])->count();
+        // Period movements count scoped to the authenticated staff member
+        $periodMovementsCount = InventoryTransaction::where('user_id', $staffUserId)
+            ->whereBetween('transaction_date', [
+                $startDate->copy()->startOfDay(),
+                $endDate->copy()->endOfDay(),
+            ])->count();
 
         // Urgent stock alerts
         $urgentItems = InventoryItem::with(['category', 'unit'])
@@ -149,15 +150,16 @@ class DashboardController extends Controller
             ->take(8)
             ->get();
 
-        // Chart 1: Stock Movements (In vs Out)
-        [$chartLabels, $stockInData, $stockOutData, $hasStockMovement] = $this->buildStockMovementTimeline($startDate, $endDate);
+        // Chart 1: Stock Movements (In vs Out) scoped to the authenticated staff member
+        [$chartLabels, $stockInData, $stockOutData, $hasStockMovement] = $this->buildStockMovementTimeline($startDate, $endDate, $staffUserId);
 
         // Chart 2: Inventory status distribution
         $statusLabels = ['In Stock (Healthy)', 'Low Stock (Warning)', 'Out of Stock (Depleted)'];
         $statusData = [$inStockCount, $lowStockCount, $outOfStockCount];
 
-        // Recent activity
+        // Recent activity scoped to the authenticated staff member
         $recentTransactions = InventoryTransaction::with(['inventoryItem.unit', 'user'])
+            ->where('user_id', $staffUserId)
             ->latest('transaction_date')
             ->take(8)
             ->get();
@@ -188,7 +190,13 @@ class DashboardController extends Controller
 
     protected function resolveDateRange(Request $request): array
     {
-        $range = $request->input('range', '7days');
+        $validated = $request->validate([
+            'range' => 'nullable|string|in:today,7days,30days,this_month,custom',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+        ]);
+
+        $range = $validated['range'] ?? '7days';
         $now = Carbon::now();
 
         switch ($range) {
@@ -209,13 +217,13 @@ class DashboardController extends Controller
                 break;
             case 'custom':
                 try {
-                    $start = $request->filled('from') ? Carbon::parse($request->input('from'))->startOfDay() : $now->copy()->subDays(6)->startOfDay();
+                    $start = !empty($validated['from']) ? Carbon::parse($validated['from'])->startOfDay() : $now->copy()->subDays(6)->startOfDay();
                 } catch (\Throwable $e) {
                     $start = $now->copy()->subDays(6)->startOfDay();
                 }
 
                 try {
-                    $end = $request->filled('to') ? Carbon::parse($request->input('to'))->endOfDay() : $now->copy()->endOfDay();
+                    $end = !empty($validated['to']) ? Carbon::parse($validated['to'])->endOfDay() : $now->copy()->endOfDay();
                 } catch (\Throwable $e) {
                     $end = $now->copy()->endOfDay();
                 }
@@ -240,9 +248,10 @@ class DashboardController extends Controller
         return [$start, $end, $range, $label];
     }
 
-    protected function buildStockMovementTimeline(Carbon $startDate, Carbon $endDate): array
+    protected function buildStockMovementTimeline(Carbon $startDate, Carbon $endDate, ?int $userId = null): array
     {
         $movements = InventoryTransaction::whereBetween('transaction_date', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
+            ->when($userId !== null, fn ($query) => $query->where('user_id', $userId))
             ->get()
             ->groupBy(function ($item) {
                 return Carbon::parse($item->transaction_date)->format('Y-m-d');

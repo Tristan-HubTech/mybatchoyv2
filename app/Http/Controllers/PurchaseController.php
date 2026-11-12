@@ -9,15 +9,20 @@ use App\Models\PurchaseItem;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PurchaseController extends Controller
 {
     public function index(Request $request)
     {
+        $validated = $request->validate([
+            'supplier' => 'nullable|integer|exists:suppliers,id',
+        ]);
+
         $purchases = Purchase::with(['supplier', 'creator', 'items'])->latest();
 
-        if ($request->filled('supplier')) {
-            $purchases->where('supplier_id', $request->supplier);
+        if (!empty($validated['supplier'])) {
+            $purchases->where('supplier_id', $validated['supplier']);
         }
 
         return view('purchases.index', [
@@ -39,28 +44,30 @@ class PurchaseController extends Controller
         $validated = $request->validate([
             'supplier_id' => 'nullable|exists:suppliers,id',
             'purchase_date' => 'required|date',
+            'notes' => 'nullable|string|max:1000',
             'items' => 'required|array|min:1',
             'items.*.inventory_item_id' => 'required|exists:inventory_items,id',
-            'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.unit_cost' => 'required|numeric|min:0',
+            'items.*.quantity' => 'required|numeric|min:0.01|max:999999999.999',
+            'items.*.unit_cost' => 'required|numeric|min:0|max:999999999.99',
         ]);
 
         DB::transaction(function () use ($validated, $request) {
             $purchase = Purchase::create([
-                'supplier_id' => $validated['supplier_id'],
+                'supplier_id' => $validated['supplier_id'] ?? null,
                 'created_by' => auth()->id(),
-                'purchase_number' => 'PO-' . now()->format('YmdHis'),
+                'purchase_number' => 'PO-' . now()->format('YmdHis') . '-' . Str::upper(Str::random(4)),
                 'purchase_date' => $validated['purchase_date'],
+                'notes' => $validated['notes'] ?? null,
                 'total_amount' => 0,
             ]);
 
-            $total = 0;
+            $total = 0.0;
 
             foreach ($validated['items'] as $itemData) {
-                $inventoryItem = InventoryItem::findOrFail($itemData['inventory_item_id']);
-                $quantity = (float) $itemData['quantity'];
-                $unitCost = (float) $itemData['unit_cost'];
-                $lineTotal = $quantity * $unitCost;
+                $inventoryItem = InventoryItem::whereKey($itemData['inventory_item_id'])->lockForUpdate()->firstOrFail();
+                $quantity = round((float) $itemData['quantity'], 3);
+                $unitCost = round((float) $itemData['unit_cost'], 2);
+                $lineTotal = round($quantity * $unitCost, 2);
 
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
@@ -71,10 +78,10 @@ class PurchaseController extends Controller
                     'total_cost' => $lineTotal,
                 ]);
 
-                $inventoryItem->current_quantity += $quantity;
+                $inventoryItem->current_quantity = round((float) $inventoryItem->current_quantity + $quantity, 3);
                 $inventoryItem->save();
 
-                $total += $lineTotal;
+                $total = round($total + $lineTotal, 2);
             }
 
             $purchase->update(['total_amount' => $total]);

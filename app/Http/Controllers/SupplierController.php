@@ -9,11 +9,18 @@ class SupplierController extends Controller
 {
     public function index(Request $request)
     {
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:100',
+        ]);
+
         $suppliers = Supplier::query();
 
-        if ($request->filled('search')) {
-            $suppliers->where('name', 'like', '%' . $request->search . '%')
-                ->orWhere('contact_person', 'like', '%' . $request->search . '%');
+        if (!empty($validated['search'])) {
+            $search = $validated['search'];
+            $suppliers->where(function ($query) use ($search) {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('contact_person', 'like', '%' . $search . '%');
+            });
         }
 
         return view('suppliers.index', ['suppliers' => $suppliers->latest()->get()]);
@@ -31,8 +38,8 @@ class SupplierController extends Controller
             'contact_person' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
-            'address' => 'nullable|string',
-            'notes' => 'nullable|string',
+            'address' => 'nullable|string|max:1000',
+            'notes' => 'nullable|string|max:2000',
         ]);
 
         Supplier::create($validated);
@@ -52,8 +59,8 @@ class SupplierController extends Controller
             'contact_person' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
-            'address' => 'nullable|string',
-            'notes' => 'nullable|string',
+            'address' => 'nullable|string|max:1000',
+            'notes' => 'nullable|string|max:2000',
         ]);
 
         $supplier->update($validated);

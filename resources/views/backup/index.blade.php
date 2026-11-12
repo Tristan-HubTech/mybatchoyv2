@@ -22,10 +22,9 @@
             <div class="card p-4 h-100">
                 <small class="muted text-uppercase fw-semibold">Database Engine</small>
                 <h4 class="fw-bold mt-2 mb-1 accent">{{ $systemInfo['database'] }}</h4>
-                <small class="text-success">● Connected & Active</small>
+                <small class="{{ $systemInfo['database_status'] === 'Connected' ? 'text-success' : 'text-danger' }}">● {{ $systemInfo['database_status'] }}</small>
             </div>
         </div>
-
         <div class="col-md-3">
             <div class="card p-4 h-100">
                 <small class="muted text-uppercase fw-semibold">Database Schema</small>
@@ -33,7 +32,6 @@
                 <small class="muted">~{{ number_format($systemInfo['total_rows']) }} total rows</small>
             </div>
         </div>
-
         <div class="col-md-3">
             <div class="card p-4 h-100">
                 <small class="muted text-uppercase fw-semibold">PHP Environment</small>
@@ -41,7 +39,6 @@
                 <small class="muted">Laravel {{ $systemInfo['laravel_version'] }}</small>
             </div>
         </div>
-
         <div class="col-md-3">
             <div class="card p-4 h-100">
                 <small class="muted text-uppercase fw-semibold">Data Footprint</small>
@@ -51,15 +48,43 @@
         </div>
     </div>
 
+    <div class="card p-4 mb-4">
+        <div class="mb-3">
+            <h2 class="h5 fw-bold mb-1">Recent backup exports</h2>
+            <p class="muted small mb-0">Exports are streamed to the administrator and are not retained as downloadable files on the server.</p>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+                <thead><tr><th>Generated</th><th>Requested by</th><th>Status</th></tr></thead>
+                <tbody>
+                    @forelse ($backupHistory as $backup)
+                        <tr>
+                            <td>{{ $backup->created_at?->format('M d, Y H:i') ?? '-' }}</td>
+                            <td>{{ $backup->user?->name ?? 'Former account' }}</td>
+                            <td><span class="badge bg-success">Export generated</span></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="3" class="text-center py-3 muted">No completed backup exports are recorded yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- Backup Instructions and Actions -->
     <div class="card p-4 mb-4">
         <h5 class="fw-bold mb-2">Manual Snapshot & Recovery</h5>
-        <p class="muted mb-3">You can download a self-contained SQL dump of all restaurant inventory, purchase orders, audit trails, and user accounts. The generated archive contains both table definitions and data values, compatible with standard MySQL / MariaDB restoration commands.</p>
+        <p class="muted mb-3">Download a SQL export of the current application database. Keep the downloaded file in an access-controlled location because it contains sensitive business and account data.</p>
+        @if ($systemInfo['database'] === 'SQLITE')
+            <p class="text-warning small">This export uses SQLite syntax. Restore it only with SQLite tooling into a separate test database; do not use MySQL restore instructions.</p>
+        @else
+            <p class="text-warning small">Test restoration only on a separate staging database. This SQL file contains DROP TABLE statements and must never be imported into the live database for testing.</p>
+        @endif
         <div class="d-flex gap-3 flex-wrap align-items-center">
             <a href="{{ route('owner.backup.download') }}" class="btn btn-primary px-4">
                 Export & Download Database (.sql)
             </a>
-            <span class="muted small">Last verified: {{ $systemInfo['server_time'] }}</span>
+            <span class="muted small">Current server time: {{ $systemInfo['server_time'] }}</span>
         </div>
     </div>
 
