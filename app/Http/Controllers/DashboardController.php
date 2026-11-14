@@ -24,31 +24,40 @@ class DashboardController extends Controller
         return redirect()->route('staff.dashboard');
     }
 
+    protected function getInventorySummaryCounts(): array
+    {
+        $row = InventoryItem::where('is_active', true)
+            ->selectRaw('
+                COUNT(*) as total_items,
+                COALESCE(SUM(CASE WHEN current_quantity > minimum_stock_level THEN 1 ELSE 0 END), 0) as in_stock_count,
+                COALESCE(SUM(CASE WHEN current_quantity > 0 AND current_quantity <= minimum_stock_level THEN 1 ELSE 0 END), 0) as low_stock_count,
+                COALESCE(SUM(CASE WHEN current_quantity <= 0 THEN 1 ELSE 0 END), 0) as out_of_stock_count
+            ')
+            ->first();
+
+        return [
+            (int) ($row->total_items ?? 0),
+            (int) ($row->in_stock_count ?? 0),
+            (int) ($row->low_stock_count ?? 0),
+            (int) ($row->out_of_stock_count ?? 0),
+        ];
+    }
+
     public function ownerDashboard(Request $request)
     {
         [$startDate, $endDate, $rangeKey, $rangeLabel] = $this->resolveDateRange($request);
 
-        // Summary counts via direct database aggregations
-        $totalItemsCount = InventoryItem::where('is_active', true)->count();
-        $inStockCount = InventoryItem::where('is_active', true)
-            ->whereColumn('current_quantity', '>', 'minimum_stock_level')
-            ->count();
-        $lowStockCount = InventoryItem::where('is_active', true)
-            ->where('current_quantity', '>', 0)
-            ->whereColumn('current_quantity', '<=', 'minimum_stock_level')
-            ->count();
-        $outOfStockCount = InventoryItem::where('is_active', true)
-            ->where('current_quantity', '<=', 0)
-            ->count();
+        // Single-query summary counts aggregation
+        [$totalItemsCount, $inStockCount, $lowStockCount, $outOfStockCount] = $this->getInventorySummaryCounts();
 
-        // Period purchasing metrics
-        $purchasingExpenses = (float) Purchase::where('purchase_date', '>=', $startDate->format('Y-m-d'))
+        // Single-query period purchasing metrics
+        $purchaseStats = Purchase::where('purchase_date', '>=', $startDate->format('Y-m-d'))
             ->where('purchase_date', '<=', $endDate->format('Y-m-d 23:59:59'))
-            ->sum('total_amount');
+            ->selectRaw('COALESCE(SUM(total_amount), 0) as total_expenses, COUNT(*) as purchases_count')
+            ->first();
 
-        $purchasesCount = Purchase::where('purchase_date', '>=', $startDate->format('Y-m-d'))
-            ->where('purchase_date', '<=', $endDate->format('Y-m-d 23:59:59'))
-            ->count();
+        $purchasingExpenses = (float) ($purchaseStats->total_expenses ?? 0);
+        $purchasesCount = (int) ($purchaseStats->purchases_count ?? 0);
 
         // Urgent stock alerts: out of stock first, then lowest ratio against minimum stock
         $urgentItems = InventoryItem::with(['category', 'unit'])
@@ -118,18 +127,8 @@ class DashboardController extends Controller
         [$startDate, $endDate, $rangeKey, $rangeLabel] = $this->resolveDateRange($request);
         $staffUserId = (int) Auth::id();
 
-        // Summary counts via direct database aggregations
-        $totalItemsCount = InventoryItem::where('is_active', true)->count();
-        $inStockCount = InventoryItem::where('is_active', true)
-            ->whereColumn('current_quantity', '>', 'minimum_stock_level')
-            ->count();
-        $lowStockCount = InventoryItem::where('is_active', true)
-            ->where('current_quantity', '>', 0)
-            ->whereColumn('current_quantity', '<=', 'minimum_stock_level')
-            ->count();
-        $outOfStockCount = InventoryItem::where('is_active', true)
-            ->where('current_quantity', '<=', 0)
-            ->count();
+        // Single-query summary counts aggregation
+        [$totalItemsCount, $inStockCount, $lowStockCount, $outOfStockCount] = $this->getInventorySummaryCounts();
 
         // Period movements count scoped to the authenticated staff member
         $periodMovementsCount = InventoryTransaction::where('user_id', $staffUserId)
@@ -250,7 +249,8 @@ class DashboardController extends Controller
 
     protected function buildStockMovementTimeline(Carbon $startDate, Carbon $endDate, ?int $userId = null): array
     {
-        $movements = InventoryTransaction::whereBetween('transaction_date', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
+        $movements = InventoryTransaction::select(['transaction_date', 'transaction_type', 'quantity'])
+            ->whereBetween('transaction_date', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
             ->when($userId !== null, fn ($query) => $query->where('user_id', $userId))
             ->get()
             ->groupBy(function ($item) {
@@ -271,7 +271,6 @@ class DashboardController extends Controller
             $stockInData[] = $group ? round((float) $group->where('transaction_type', 'stock_in')->sum('quantity'), 2) : 0;
             $stockOutData[] = $group ? round((float) $group->where('transaction_type', 'stock_out')->sum('quantity'), 2) : 0;
         } else {
-            // Keep points between 1 and 31
             $step = max(1, (int) floor($daysCount / 31));
             while ($current->lte($endDate) && count($chartLabels) < 31) {
                 $dateStr = $current->format('Y-m-d');
@@ -290,7 +289,8 @@ class DashboardController extends Controller
 
     protected function buildPurchasesTimeline(Carbon $startDate, Carbon $endDate): array
     {
-        $purchases = Purchase::where('purchase_date', '>=', $startDate->format('Y-m-d'))
+        $purchases = Purchase::select(['purchase_date', 'total_amount'])
+            ->where('purchase_date', '>=', $startDate->format('Y-m-d'))
             ->where('purchase_date', '<=', $endDate->format('Y-m-d 23:59:59'))
             ->get()
             ->groupBy(function ($item) {

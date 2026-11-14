@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "MyBatchoy Inventory",
+    "slug": "mybatchoy-inventory",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#111111",
+    "primaryColor": "#E53935",
+    "splash": {
+      "backgroundColor": "#111111",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mybatchoy.inventory"
+    },
+    "android": {
+      "package": "com.mybatchoy.inventory",
+      "adaptiveIcon": {
+        "backgroundColor": "#111111"
+      }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}
+

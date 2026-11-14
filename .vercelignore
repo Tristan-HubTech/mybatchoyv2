@@ -1,0 +1,7 @@
+/mobile
+/node_modules
+/tests
+/storage/*.key
+.env
+.git
+

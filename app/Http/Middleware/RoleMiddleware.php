@@ -10,13 +10,25 @@ class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, string ...$roles): mixed
     {
-        if (!Auth::check()) {
+        $user = $request->user() ?? Auth::user();
+
+        if (!$user) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+
             return redirect()->route('login');
         }
 
-        $userRole = Auth::user()->role?->name;
+        $userRole = $user->role?->name;
 
         if (!in_array($userRole, $roles, true)) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'message' => 'You are not authorized to access this resource.',
+                ], 403);
+            }
+
             abort(403, 'You are not authorized to access this page.');
         }
 

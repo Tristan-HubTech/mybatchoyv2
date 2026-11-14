@@ -21,6 +21,11 @@ class PurchaseItem extends Model
         return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
     }
 
+    public function inventoryItem()
+    {
+        return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+    }
+
     public function unit()
     {
         return $this->belongsTo(Unit::class);

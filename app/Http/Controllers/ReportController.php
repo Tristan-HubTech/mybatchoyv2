@@ -7,7 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
@@ -16,11 +16,13 @@ class ReportController extends Controller
     {
         $items = InventoryItem::with(['category', 'unit'])->get();
 
-        // Calculate approximate inventory valuation based on latest purchase prices or default 100/unit
+        // Single subquery for latest purchase unit_cost per inventory_item_id
         $latestPrices = PurchaseItem::select('inventory_item_id', 'unit_cost')
-            ->orderBy('id', 'desc')
-            ->get()
-            ->unique('inventory_item_id')
+            ->whereIn('id', function ($query) {
+                $query->select(DB::raw('MAX(id)'))
+                    ->from('purchase_items')
+                    ->groupBy('inventory_item_id');
+            })
             ->pluck('unit_cost', 'inventory_item_id');
 
         $inventoryValue = $items->sum(function ($item) use ($latestPrices) {
@@ -33,23 +35,27 @@ class ReportController extends Controller
             ->whereYear('purchase_date', now()->year)
             ->sum('total_amount');
 
-        $totalUsageQty = InventoryTransaction::where('transaction_type', 'stock_out')->sum('quantity');
-        $totalSpoilageQty = InventoryTransaction::where('transaction_type', 'spoilage')->sum('quantity');
-        $totalStockInQty = InventoryTransaction::where('transaction_type', 'stock_in')->sum('quantity');
+        // Single grouped query for transaction totals by type
+        $txSums = InventoryTransaction::whereIn('transaction_type', ['stock_out', 'spoilage', 'stock_in'])
+            ->groupBy('transaction_type')
+            ->selectRaw('transaction_type, COALESCE(SUM(quantity), 0) as total_qty')
+            ->pluck('total_qty', 'transaction_type');
+
+        $totalUsageQty = (float) ($txSums['stock_out'] ?? 0);
+        $totalSpoilageQty = (float) ($txSums['spoilage'] ?? 0);
+        $totalStockInQty = (float) ($txSums['stock_in'] ?? 0);
 
         $lowStockItems = $items->filter(fn ($item) => $item->current_quantity > 0 && $item->current_quantity <= $item->minimum_stock_level);
         $outOfStockItems = $items->filter(fn ($item) => $item->current_quantity <= 0);
 
         $categories = InventoryCategory::withCount('items')
-            ->with(['items' => function ($q) {
-                $q->select('id', 'category_id', 'current_quantity');
-            }])
+            ->withSum('items as total_quantity', 'current_quantity')
             ->get()
             ->map(function ($cat) {
                 return [
                     'name' => $cat->name,
-                    'items_count' => $cat->items_count,
-                    'total_quantity' => $cat->items->sum('current_quantity'),
+                    'items_count' => (int) $cat->items_count,
+                    'total_quantity' => (float) ($cat->total_quantity ?? 0),
                 ];
             });
 

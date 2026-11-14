@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\InventoryItem;
+use App\Models\InventoryTransaction;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
@@ -78,8 +79,23 @@ class PurchaseController extends Controller
                     'total_cost' => $lineTotal,
                 ]);
 
-                $inventoryItem->current_quantity = round((float) $inventoryItem->current_quantity + $quantity, 3);
+                $previousQuantity = round((float) $inventoryItem->current_quantity, 3);
+                $updatedQuantity = round($previousQuantity + $quantity, 3);
+                $inventoryItem->current_quantity = $updatedQuantity;
+                $inventoryItem->last_counted_at = now();
                 $inventoryItem->save();
+
+                InventoryTransaction::create([
+                    'inventory_item_id' => $inventoryItem->id,
+                    'user_id' => auth()->id(),
+                    'supplier_id' => $purchase->supplier_id,
+                    'transaction_type' => 'stock_in',
+                    'quantity' => $quantity,
+                    'previous_quantity' => $previousQuantity,
+                    'updated_quantity' => $updatedQuantity,
+                    'reason' => 'Purchase (' . $purchase->purchase_number . ')',
+                    'transaction_date' => now(),
+                ]);
 
                 $total = round($total + $lineTotal, 2);
             }

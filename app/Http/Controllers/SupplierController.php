@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 
@@ -42,7 +43,17 @@ class SupplierController extends Controller
             'notes' => 'nullable|string|max:2000',
         ]);
 
-        Supplier::create($validated);
+        $supplier = Supplier::create($validated);
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'supplier_created',
+            'model_type' => Supplier::class,
+            'model_id' => $supplier->id,
+            'details' => 'Created supplier: ' . $supplier->name,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         return redirect()->route('owner.suppliers.index')->with('success', 'Supplier saved successfully.');
     }
@@ -64,6 +75,16 @@ class SupplierController extends Controller
         ]);
 
         $supplier->update($validated);
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'supplier_updated',
+            'model_type' => Supplier::class,
+            'model_id' => $supplier->id,
+            'details' => 'Updated supplier: ' . $supplier->name,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         return redirect()->route('owner.suppliers.index')->with('success', 'Supplier updated successfully.');
     }

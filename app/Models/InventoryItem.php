@@ -61,4 +61,15 @@ class InventoryItem extends Model
 
         return 'Available';
     }
+
+    public function isOutOfStock(): bool
+    {
+        return (float) $this->current_quantity <= 0;
+    }
+
+    public function isLowStock(): bool
+    {
+        return (float) $this->current_quantity > 0
+            && (float) $this->current_quantity <= (float) $this->minimum_stock_level;
+    }
 }
