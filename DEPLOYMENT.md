@@ -16,7 +16,7 @@
    git add .
    git commit -m "Prepare MyBatchoy web and mobile for production"
    git branch -M main
-   git remote add origin https://github.com/YOUR_USERNAME/mybatchoy.git
+   git remote set-url origin https://github.com/Tristan-HubTech/mybatchoyv2.git
    git push -u origin main
    ```
 

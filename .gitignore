@@ -1,4 +1,6 @@
 /node_modules
+/mobile/node_modules
+/mobile/.expo
 /public/build
 /public/hot
 /public/storage
