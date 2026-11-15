@@ -59,7 +59,17 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                PDO::MYSQL_ATTR_SSL_CA => (function () {
+                    $envCa = env('MYSQL_ATTR_SSL_CA');
+                    if ($envCa && file_exists($envCa)) {
+                        return $envCa;
+                    }
+                    $bundledCa = base_path('storage/certs/tidb-ca.pem');
+                    if (env('DB_PORT') == '4000' && file_exists($bundledCa)) {
+                        return $bundledCa;
+                    }
+                    return $envCa;
+                })(),
             ]) : [],
         ],
 
