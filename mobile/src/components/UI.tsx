@@ -162,16 +162,19 @@ export const MetricCard: React.FC<{
   icon: keyof typeof Ionicons.glyphMap;
   accentColor?: string;
   subtitle?: string;
-}> = React.memo(({ label, value, icon, accentColor = COLORS.primary, subtitle }) => (
-  <View style={[styles.metricCard, { borderLeftColor: accentColor }]}>
-    <View style={styles.metricHeader}>
+}> = React.memo(({ label, value, icon, accentColor = COLORS.primary, subtitle }) => {
+  const iconFg = accentColor === COLORS.secondary || accentColor === COLORS.warning ? '#111111' : '#FFFFFF';
+  return (
+    <View style={styles.metricCard}>
+      <View style={[styles.metricIconCircle, { backgroundColor: accentColor }]}>
+        <Ionicons name={icon} size={18} color={iconFg} />
+      </View>
+      <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
-      <Ionicons name={icon} size={18} color={accentColor} />
+      {subtitle ? <Text style={styles.metricSub}>{subtitle}</Text> : null}
     </View>
-    <Text style={styles.metricValue}>{value}</Text>
-    {subtitle ? <Text style={styles.metricSub}>{subtitle}</Text> : null}
-  </View>
-));
+  );
+});
 
 export const PrimaryButton: React.FC<{
   title: string;
@@ -394,31 +397,38 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderLeftWidth: 4,
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     marginBottom: 10,
-  },
-  metricHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'center',
+  },
+  metricIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   metricLabel: {
     color: COLORS.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    textTransform: 'uppercase',
+    marginTop: 2,
+    textAlign: 'center',
   },
   metricValue: {
     color: COLORS.text,
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   metricSub: {
     color: COLORS.textMuted,
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 10,
+    marginTop: 3,
+    textAlign: 'center',
   },
   button: {
     minHeight: 46,

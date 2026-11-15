@@ -114,7 +114,7 @@ class StaffApiController extends Controller
                 if (!$isActive) {
                     $attributes['remember_token'] = Str::random(60);
                     DB::table('password_resets')->where('email', $staffMember->email)->delete();
-                    $staffMember->tokens()->delete();
+                    app(\App\Services\ActiveSessionManager::class)->invalidateAllForUser($staffMember);
                 }
 
                 $staffMember->forceFill($attributes)->save();
@@ -147,7 +147,7 @@ class StaffApiController extends Controller
             ])->save();
 
             DB::table('password_resets')->where('email', $staffMember->email)->delete();
-            $staffMember->tokens()->delete();
+            app(\App\Services\ActiveSessionManager::class)->invalidateAllForUser($staffMember);
             $this->recordAccountChange($request, $staffMember, 'staff_password_reset', 'Staff password reset by an owner.');
         });
 

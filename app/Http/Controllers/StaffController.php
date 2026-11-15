@@ -41,6 +41,7 @@ class StaffController extends Controller
 
         return view('staff.index', [
             'staff' => $staff->orderBy('name')->paginate(15)->withQueryString(),
+            'pendingRequests' => $this->pendingAccessRequests($staffRoleId),
         ]);
     }
 
@@ -112,7 +113,7 @@ class StaffController extends Controller
                 if (!$isActive) {
                     $attributes['remember_token'] = Str::random(60);
                     DB::table('password_resets')->where('email', $staffMember->email)->delete();
-                    $staffMember->tokens()->delete();
+                    app(\App\Services\ActiveSessionManager::class)->invalidateAllForUser($staffMember);
                 }
 
                 $staffMember->forceFill($attributes)->save();
@@ -142,11 +143,113 @@ class StaffController extends Controller
             ])->save();
 
             DB::table('password_resets')->where('email', $staffMember->email)->delete();
-            $staffMember->tokens()->delete();
+            app(\App\Services\ActiveSessionManager::class)->invalidateAllForUser($staffMember);
             $this->recordAccountChange($request, $staffMember, 'staff_password_reset', 'Staff password reset by an owner.');
         });
 
         return redirect()->route('owner.staff.edit', $staffMember)->with('success', 'Staff password reset.');
+    }
+
+    public function approveRequest(Request $request, int $staff)
+    {
+        $staffMember = $this->findStaff($staff);
+
+        if (!$this->isPendingAccessRequest($staffMember)) {
+            return redirect()->route('owner.staff.index')->withErrors([
+                'staff' => 'Only pending staff access requests can be approved.',
+            ]);
+        }
+
+        DB::transaction(function () use ($staffMember, $request): void {
+            $staffMember->forceFill(['is_active' => true])->save();
+            $this->recordAccountChange(
+                $request,
+                $staffMember,
+                'staff_request_approved',
+                'Pending staff access request approved by Owner/Admin.'
+            );
+        });
+
+        return redirect()->route('owner.staff.index')
+            ->with('success', "Staff access request for {$staffMember->name} approved. The account is now active.");
+    }
+
+    public function rejectRequest(Request $request, int $staff)
+    {
+        $staffMember = $this->findStaff($staff);
+
+        if (!$this->isPendingAccessRequest($staffMember)) {
+            return redirect()->route('owner.staff.index')->withErrors([
+                'staff' => 'Only pending staff access requests can be rejected.',
+            ]);
+        }
+
+        DB::transaction(function () use ($staffMember, $request): void {
+            $this->recordAccountChange(
+                $request,
+                $staffMember,
+                'staff_request_rejected',
+                "Pending staff access request rejected for {$staffMember->username}."
+            );
+            DB::table('password_resets')->where('email', $staffMember->email)->delete();
+            $staffMember->tokens()->delete();
+            $staffMember->delete();
+        });
+
+        return redirect()->route('owner.staff.index')
+            ->with('success', 'Staff access request rejected.');
+    }
+
+    private function pendingAccessRequests(?int $staffRoleId)
+    {
+        if (!$staffRoleId) {
+            return collect();
+        }
+
+        $pendingIds = $this->pendingRequestUserIds();
+        if ($pendingIds === []) {
+            return collect();
+        }
+
+        return User::with('role')
+            ->where('role_id', $staffRoleId)
+            ->where('is_active', false)
+            ->whereNull('last_login_at')
+            ->whereIn('id', $pendingIds)
+            ->latest('created_at')
+            ->get();
+    }
+
+    private function isPendingAccessRequest(User $staffMember): bool
+    {
+        if ($staffMember->is_active || $staffMember->last_login_at !== null) {
+            return false;
+        }
+
+        return in_array($staffMember->id, $this->pendingRequestUserIds(), true);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function pendingRequestUserIds(): array
+    {
+        $resolvedIds = AuditLog::whereIn('action', ['staff_request_approved', 'staff_activated', 'staff_deactivated'])
+            ->where('model_type', User::class)
+            ->pluck('model_id')
+            ->filter()
+            ->map(static fn ($id): int => (int) $id)
+            ->unique();
+
+        return AuditLog::where('action', 'staff_access_requested')
+            ->where('model_type', User::class)
+            ->pluck('model_id')
+            ->filter()
+            ->map(static fn ($id): int => (int) $id)
+            ->unique()
+            ->diff($resolvedIds)
+            ->values()
+            ->all();
     }
 
     private function findStaff(int $id): User

@@ -147,8 +147,11 @@ class DashboardOverviewTest extends TestCase
 
         // Urgent alerts (Chicharon out of stock must appear before Miki noodles)
         $content = $response->getContent();
-        $chicharonPos = strpos($content, 'Pork Cracklings (Chicharon)');
-        $mikiPos = strpos($content, 'Egg Noodles (Miki)');
+        $alertsPos = strpos($content, 'id="urgentAlertsSection"');
+        $this->assertNotFalse($alertsPos);
+        $alertsContent = substr($content, $alertsPos);
+        $chicharonPos = strpos($alertsContent, 'Pork Cracklings (Chicharon)');
+        $mikiPos = strpos($alertsContent, 'Egg Noodles (Miki)');
         $this->assertNotFalse($chicharonPos);
         $this->assertNotFalse($mikiPos);
         $this->assertTrue($chicharonPos < $mikiPos, 'Out of stock item must appear before low stock item in urgent alerts');
@@ -239,5 +242,15 @@ class DashboardOverviewTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Dashboard Overview');
+    }
+
+    public function test_home_route_and_authenticated_login_redirect_never_return_404(): void
+    {
+        $this->get('/home')->assertRedirect(route('login'));
+
+        $this->actingAs($this->owner)->get('/home')->assertRedirect(route('owner.dashboard'));
+        $this->actingAs($this->staff)->get('/home')->assertRedirect(route('staff.dashboard'));
+
+        $this->actingAs($this->owner)->get(route('login'))->assertRedirect(route('dashboard'));
     }
 }

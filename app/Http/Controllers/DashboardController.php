@@ -17,7 +17,7 @@ class DashboardController extends Controller
             return redirect()->route('login');
         }
 
-        if (Auth::user()->role && Auth::user()->role->name === 'owner') {
+        if (\App\Models\Role::cachedNameById(Auth::user()->role_id) === 'owner') {
             return redirect()->route('owner.dashboard');
         }
 
@@ -50,15 +50,6 @@ class DashboardController extends Controller
         // Single-query summary counts aggregation
         [$totalItemsCount, $inStockCount, $lowStockCount, $outOfStockCount] = $this->getInventorySummaryCounts();
 
-        // Single-query period purchasing metrics
-        $purchaseStats = Purchase::where('purchase_date', '>=', $startDate->format('Y-m-d'))
-            ->where('purchase_date', '<=', $endDate->format('Y-m-d 23:59:59'))
-            ->selectRaw('COALESCE(SUM(total_amount), 0) as total_expenses, COUNT(*) as purchases_count')
-            ->first();
-
-        $purchasingExpenses = (float) ($purchaseStats->total_expenses ?? 0);
-        $purchasesCount = (int) ($purchaseStats->purchases_count ?? 0);
-
         // Urgent stock alerts: out of stock first, then lowest ratio against minimum stock
         $urgentItems = InventoryItem::with(['category', 'unit'])
             ->where('is_active', true)
@@ -74,8 +65,8 @@ class DashboardController extends Controller
         // Chart 1: Stock Movements (In vs Out) over the selected range
         [$chartLabels, $stockInData, $stockOutData, $hasStockMovement] = $this->buildStockMovementTimeline($startDate, $endDate);
 
-        // Chart 2: Purchasing expenses over time
-        [$purchaseLabels, $purchaseSpendData, $hasPurchasesInPeriod] = $this->buildPurchasesTimeline($startDate, $endDate);
+        // Chart 2 + Summary metrics: Purchasing expenses over time (single query)
+        [$purchaseLabels, $purchaseSpendData, $hasPurchasesInPeriod, $purchasingExpenses, $purchasesCount] = $this->buildPurchasesTimeline($startDate, $endDate);
 
         // Chart 3: Inventory status distribution
         $statusLabels = ['In Stock (Healthy)', 'Low Stock (Warning)', 'Out of Stock (Depleted)'];
@@ -289,13 +280,17 @@ class DashboardController extends Controller
 
     protected function buildPurchasesTimeline(Carbon $startDate, Carbon $endDate): array
     {
-        $purchases = Purchase::select(['purchase_date', 'total_amount'])
+        $rows = Purchase::select(['purchase_date', 'total_amount'])
             ->where('purchase_date', '>=', $startDate->format('Y-m-d'))
             ->where('purchase_date', '<=', $endDate->format('Y-m-d 23:59:59'))
-            ->get()
-            ->groupBy(function ($item) {
-                return Carbon::parse($item->purchase_date)->format('Y-m-d');
-            });
+            ->get();
+
+        $totalExpenses = round((float) $rows->sum('total_amount'), 2);
+        $purchasesCount = $rows->count();
+
+        $purchases = $rows->groupBy(function ($item) {
+            return Carbon::parse($item->purchase_date)->format('Y-m-d');
+        });
 
         $purchaseLabels = [];
         $purchaseSpendData = [];
@@ -321,6 +316,6 @@ class DashboardController extends Controller
 
         $hasPurchasesInPeriod = (array_sum($purchaseSpendData) > 0);
 
-        return [$purchaseLabels, $purchaseSpendData, $hasPurchasesInPeriod];
+        return [$purchaseLabels, $purchaseSpendData, $hasPurchasesInPeriod, $totalExpenses, $purchasesCount];
     }
 }

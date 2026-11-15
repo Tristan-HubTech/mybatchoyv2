@@ -23,10 +23,10 @@ import {
 } from '../components/UI';
 
 const REPORT_TABS = [
-  { key: 'inventory', label: 'Inventory & Valuation' },
+  { key: 'inventory', label: 'Stock Summary' },
   { key: 'low_stock', label: 'Low / Out of Stock' },
-  { key: 'movements', label: 'Stock Movements' },
-  { key: 'purchases', label: 'Purchase Summary' },
+  { key: 'movements', label: 'Stock Activity' },
+  { key: 'purchases', label: 'Supply Orders' },
 ];
 
 export const ReportsScreen: React.FC = () => {
@@ -121,9 +121,14 @@ export const ReportsScreen: React.FC = () => {
       }
     >
       <View style={styles.topRow}>
-        <Text style={styles.heading}>Reports & Analytics</Text>
+        <View style={{ flex: 1, paddingRight: 8 }}>
+          <Text style={styles.heading}>Stock &amp; Purchase Summary</Text>
+          <Text style={[styles.cardSub, { marginTop: 2 }]}>
+            Stock value, low items, activity, and supply costs. (Sales are not tracked here.)
+          </Text>
+        </View>
         <PrimaryButton
-          title="Export CSV"
+          title="Save CSV"
           icon="download-outline"
           variant="secondary"
           onPress={handleExportCsv}
@@ -135,18 +140,18 @@ export const ReportsScreen: React.FC = () => {
       <View style={styles.dateFilterRow}>
         <View style={{ flex: 1, marginRight: 8 }}>
           <FormField
-            label="From Date (YYYY-MM-DD)"
+            label="From Date (Optional)"
             value={fromDate}
             onChangeText={setFromDate}
-            placeholder="2026-01-01"
+            placeholder="YYYY-MM-DD"
           />
         </View>
         <View style={{ flex: 1 }}>
           <FormField
-            label="To Date (YYYY-MM-DD)"
+            label="To Date (Optional)"
             value={toDate}
             onChangeText={setToDate}
-            placeholder="2026-12-31"
+            placeholder="YYYY-MM-DD"
           />
         </View>
       </View>
@@ -162,32 +167,36 @@ export const ReportsScreen: React.FC = () => {
         <>
           <View style={styles.metricsGrid}>
             <MetricCard
-              label="Est. Valuation"
+              label="Est. Stock Value"
               value={`₱${Number(summary.inventory_value ?? 0).toLocaleString('en-PH', {
                 minimumFractionDigits: 2,
               })}`}
               icon="cash-outline"
               accentColor={COLORS.secondary}
+              subtitle="Based on unit costs"
             />
             <MetricCard
-              label="Total Purchases"
+              label="Supply Spend"
               value={`₱${Number(summary.total_purchases ?? 0).toLocaleString('en-PH', {
                 minimumFractionDigits: 2,
               })}`}
               icon="cart-outline"
               accentColor={COLORS.primary}
+              subtitle="Supply orders cost"
             />
             <MetricCard
-              label="Stock In / Out"
+              label="Added / Removed"
               value={`+${summary.total_stock_in_qty ?? 0} / -${summary.total_usage_qty ?? 0}`}
               icon="swap-vertical-outline"
               accentColor={COLORS.success}
+              subtitle="Stock in vs used"
             />
             <MetricCard
               label="Spoilage Qty"
               value={summary.total_spoilage_qty ?? 0}
               icon="trash-outline"
               accentColor={COLORS.danger}
+              subtitle="Expired or damaged"
             />
           </View>
 

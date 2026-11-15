@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\BusinessSetting;
+use App\Models\User;
+use App\Services\ActiveSessionManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
@@ -23,15 +28,21 @@ class LoginController extends Controller
 
     public function showLoginForm()
     {
-        return view('auth.login');
+        $businessSettings = ActiveSessionManager::hasTable('business_settings') ? BusinessSetting::current() : null;
+
+        return view('auth.login', [
+            'businessSettings' => $businessSettings,
+        ]);
     }
 
-    public function login(Request $request)
+    public function login(Request $request, ActiveSessionManager $sessions)
     {
         $this->validateLogin($request);
 
-        $username = trim($request->input('username'));
-        $usernameKey = $this->usernameRateLimitKey($username);
+        $identifier = trim((string) $request->input('username'));
+        $password = (string) $request->input('password');
+        $remember = $request->boolean('remember');
+        $usernameKey = $this->usernameRateLimitKey($identifier);
         $ipKey = 'login:ip:' . $request->ip();
 
         if (RateLimiter::tooManyAttempts($usernameKey, self::USERNAME_MAX_ATTEMPTS)
@@ -41,16 +52,9 @@ class LoginController extends Controller
             ]);
         }
 
-        $authenticated = Auth::attempt([
-            'username' => $username,
-            'password' => $request->input('password'),
-        ], $request->boolean('remember'));
+        $user = $this->resolveAuthenticatedUser($identifier, $password);
 
-        if (!$authenticated || !Auth::user()->is_active) {
-            if ($authenticated) {
-                Auth::logout();
-            }
-
+        if (!$user || !$user->is_active) {
             RateLimiter::hit($usernameKey, self::DECAY_SECONDS);
             RateLimiter::hit($ipKey, self::DECAY_SECONDS);
 
@@ -59,18 +63,27 @@ class LoginController extends Controller
             ]);
         }
 
+        $sessions->claimForWeb($user, $request, function () use ($user, $remember, $request): void {
+            Auth::guard('web')->login($user, $remember);
+            $request->session()->regenerate();
+        });
+
         RateLimiter::clear($usernameKey);
         RateLimiter::clear($ipKey);
-        $request->session()->regenerate();
 
-        Auth::user()->update(['last_login_at' => now()]);
+        $user->update(['last_login_at' => now()]);
 
         return redirect()->intended($this->redirectTo());
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request, ActiveSessionManager $sessions)
     {
-        Auth::logout();
+        $user = $request->user() ?? Auth::guard('web')->user();
+        if ($user) {
+            $sessions->releaseForWeb($user, $request);
+        }
+
+        Auth::guard('web')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
@@ -86,6 +99,29 @@ class LoginController extends Controller
         ]);
     }
 
+    private function resolveAuthenticatedUser(string $identifier, string $password): ?User
+    {
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false) {
+            $emailUser = User::with('role')
+                ->where('email', mb_strtolower($identifier))
+                ->first();
+
+            if ($emailUser && Hash::check($password, $emailUser->getAuthPassword())) {
+                return $emailUser;
+            }
+        }
+
+        $usernameUser = User::with('role')
+            ->where('username', $identifier)
+            ->first();
+
+        if ($usernameUser && Hash::check($password, $usernameUser->getAuthPassword())) {
+            return $usernameUser;
+        }
+
+        return null;
+    }
+
     private function usernameRateLimitKey(string $username): string
     {
         return 'login:username:' . hash('sha256', mb_strtolower(trim($username)));
@@ -93,7 +129,7 @@ class LoginController extends Controller
 
     protected function redirectTo(): string
     {
-        if (Auth::user()?->role?->name === 'owner') {
+        if (Auth::guard('web')->user()?->role?->name === 'owner') {
             return route('owner.dashboard');
         }
 

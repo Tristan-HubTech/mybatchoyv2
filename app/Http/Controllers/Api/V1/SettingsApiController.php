@@ -7,6 +7,10 @@ use App\Models\AuditLog;
 use App\Models\BusinessSetting;
 use App\Models\InventoryCategory;
 use App\Models\Unit;
+use App\Models\User;
+use App\Models\UserActiveSession;
+use App\Services\ActiveSessionManager;
+use App\Services\OwnerMfaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +18,7 @@ use Illuminate\Validation\Rule;
 
 class SettingsApiController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request, ActiveSessionManager $sessions): JsonResponse
     {
         $settings = BusinessSetting::firstOrCreate(
             ['id' => 1],
@@ -23,6 +27,22 @@ class SettingsApiController extends Controller
                 'session_timeout_minutes' => config('session.lifetime', 20),
             ]
         );
+
+        $sessions->pruneExpiredSessions();
+        $activeSessions = UserActiveSession::with('user.role')
+            ->whereHas('user')
+            ->orderByDesc('last_activity_at')
+            ->get()
+            ->map(fn (UserActiveSession $record) => [
+                'user_id' => $record->user_id,
+                'username' => $record->user->username,
+                'name' => $record->user->name,
+                'role' => $record->user->role?->name,
+                'device_info' => $record->device_info,
+                'logged_in_at' => $record->logged_in_at?->toIso8601String(),
+                'last_activity_at' => $record->last_activity_at?->toIso8601String(),
+                'status' => $record->isExpired() ? 'Expired' : 'Active',
+            ]);
 
         return response()->json([
             'settings' => [
@@ -35,6 +55,7 @@ class SettingsApiController extends Controller
                 'session_timeout_minutes' => (int) $settings->session_timeout_minutes,
                 'default_minimum_stock_level' => (float) $settings->default_minimum_stock_level,
                 'default_reorder_level' => (float) $settings->default_reorder_level,
+                'single_active_session' => true,
             ],
             'categories' => InventoryCategory::withCount('items')->orderBy('name')->get()->map(fn (InventoryCategory $c) => [
                 'id' => $c->id,
@@ -51,13 +72,47 @@ class SettingsApiController extends Controller
                 'is_active' => (bool) $u->is_active,
                 'items_count' => (int) $u->items_count,
             ]),
+            'active_sessions' => $activeSessions,
             'system_info' => [
                 'application_version' => app()->version(),
                 'environment' => config('app.env'),
                 'database_driver' => DB::connection()->getDriverName(),
                 'database_status' => DB::select('SELECT 1') ? 'Connected' : 'Unavailable',
-                'owner_mfa_status' => 'Not enabled; no MFA flow is configured',
+                'single_active_session_status' => 'Enabled',
+                'owner_mfa_status' => $request->user()?->mfa_enabled
+                    ? 'Enabled (Authenticator App + Email Verification)'
+                    : 'Email Verification Active (Authenticator Optional)',
             ],
+        ]);
+    }
+
+    public function sendMfaChallenge(Request $request, OwnerMfaService $mfa): JsonResponse
+    {
+        $mfa->issueEmailChallenge($request->user(), $request, 'security_verification');
+
+        return response()->json([
+            'message' => 'A 6-digit MFA verification code has been sent to your Owner email address.',
+        ]);
+    }
+
+    public function revokeActiveSession(Request $request, User $user, ActiveSessionManager $sessions, OwnerMfaService $mfa): JsonResponse
+    {
+        $validated = $request->validate([
+            'current_password' => 'required|string',
+            'mfa_code' => 'required|digits:6',
+        ]);
+
+        $mfa->verifyPasswordAndMfa(
+            $request->user(),
+            (string) $validated['current_password'],
+            (string) $validated['mfa_code'],
+            'security_verification'
+        );
+
+        $sessions->revokeByOwner($user, $request->user(), $request);
+
+        return response()->json([
+            'message' => "Active login session revoked for {$user->username}.",
         ]);
     }
 

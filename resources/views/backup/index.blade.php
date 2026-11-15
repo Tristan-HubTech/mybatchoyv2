@@ -1,118 +1,148 @@
 @extends('layouts.app')
 
-@section('title', 'Backup & System Health')
+@section('title', 'Database Backup')
 
 @section('content')
-<div class="container py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-        <div>
-            <p class="text-uppercase small fw-bold accent mb-1">Administration</p>
-            <h1 class="fw-bold mb-0">Backup & System Diagnostics</h1>
-        </div>
-        <div>
-            <a href="{{ route('owner.backup.download') }}" class="btn btn-primary">
-                <span>↓ Download SQL Backup</span>
-            </a>
-        </div>
+<x-page-header
+    section="Administration"
+    breadcrumb="Settings"
+    title="Database Backup &amp; System Health"
+    subtitle="Inspect database health metrics, review recent exports, and download an SQL database backup.">
+    <x-slot:actions>
+        <a href="{{ route('owner.settings.index') }}" class="btn btn-outline-light">&larr; Back to Settings</a>
+        <a href="{{ route('owner.backup.download') }}" class="btn btn-primary">Download SQL Backup</a>
+    </x-slot:actions>
+</x-page-header>
+
+<x-alert-banner />
+
+<h2 class="h6 fw-bold text-uppercase mb-3" style="color: #BDBDBD; letter-spacing: 0.06em;">System Diagnostics</h2>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3 mb-4">
+    <div class="col">
+        <x-kpi-card
+            label="Database Engine"
+            :value="$systemInfo['database']"
+            :meta="$systemInfo['database_status']"
+            :metaTone="$systemInfo['database_status'] === 'Connected' ? 'up' : 'danger'"
+            :tone="$systemInfo['database_status'] === 'Connected' ? 'green' : 'red'">
+            <x-slot:icon>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            </x-slot:icon>
+        </x-kpi-card>
+    </div>
+    <div class="col">
+        <x-kpi-card
+            label="Tables Tracked"
+            :value="$systemInfo['tables_count'] . ' Tables'"
+            :meta="'~' . number_format($systemInfo['total_rows']) . ' total rows'"
+            metaTone="up"
+            tone="yellow">
+            <x-slot:icon>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            </x-slot:icon>
+        </x-kpi-card>
+    </div>
+    <div class="col">
+        <x-kpi-card
+            label="Runtime Environment"
+            :value="'PHP ' . $systemInfo['php_version']"
+            :meta="'Laravel ' . $systemInfo['laravel_version']"
+            metaTone="up"
+            tone="green">
+            <x-slot:icon>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </x-slot:icon>
+        </x-kpi-card>
+    </div>
+    <div class="col">
+        <x-kpi-card
+            label="Estimated Storage"
+            :value="$systemInfo['total_size_kb'] . ' KB'"
+            meta="Active database footprint"
+            metaTone="warn"
+            tone="red">
+            <x-slot:icon>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </x-slot:icon>
+        </x-kpi-card>
+    </div>
+</div>
+
+@if ($systemInfo['database'] === 'SQLITE')
+    <div class="eb-alert eb-alert-info small">
+        <strong>SQLite Note:</strong> Backups export standard SQL statements ready for inspection or archival storage.
+    </div>
+@endif
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <x-table-card title="Recent backup exports">
+            <x-slot:headerActions>
+                <span class="small" style="color: #BDBDBD;">Server time: {{ $systemInfo['server_time'] }}</span>
+            </x-slot:headerActions>
+
+            @if ($backupHistory->isEmpty())
+                <x-empty-state
+                    title="No exports recorded yet"
+                    description="Click Download SQL Backup to save a full copy of your inventory database."
+                    :actionUrl="route('owner.backup.download')"
+                    actionLabel="Download SQL Backup" />
+            @else
+                <div class="table-responsive">
+                    <table class="table eb-table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date &amp; Time</th>
+                                <th>Triggered By</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($backupHistory as $backup)
+                                <tr>
+                                    <td class="small text-white">{{ $backup->created_at?->format('M d, Y H:i') ?? '—' }}</td>
+                                    <td class="small" style="color: #BDBDBD;">{{ $backup->user?->name ?? 'Former account' }}</td>
+                                    <td><x-status-badge variant="success" label="Export generated" /></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </x-table-card>
     </div>
 
-    <!-- System Diagnostics Cards -->
-    <div class="row g-4 mb-4">
-        <div class="col-md-3">
-            <div class="card p-4 h-100">
-                <small class="muted text-uppercase fw-semibold">Database Engine</small>
-                <h4 class="fw-bold mt-2 mb-1 accent">{{ $systemInfo['database'] }}</h4>
-                <small class="{{ $systemInfo['database_status'] === 'Connected' ? 'text-success' : 'text-danger' }}">● {{ $systemInfo['database_status'] }}</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card p-4 h-100">
-                <small class="muted text-uppercase fw-semibold">Database Schema</small>
-                <h4 class="fw-bold mt-2 mb-1">{{ $systemInfo['tables_count'] }} Tables</h4>
-                <small class="muted">~{{ number_format($systemInfo['total_rows']) }} total rows</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card p-4 h-100">
-                <small class="muted text-uppercase fw-semibold">PHP Environment</small>
-                <h4 class="fw-bold mt-2 mb-1">PHP {{ $systemInfo['php_version'] }}</h4>
-                <small class="muted">Laravel {{ $systemInfo['laravel_version'] }}</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card p-4 h-100">
-                <small class="muted text-uppercase fw-semibold">Data Footprint</small>
-                <h4 class="fw-bold mt-2 mb-1">{{ $systemInfo['total_size_kb'] }} KB</h4>
-                <small class="muted">Local storage snapshot</small>
-            </div>
-        </div>
-    </div>
+    <div class="col-lg-6">
+        <x-table-card title="Database Tables Inventory">
+            <x-slot:headerActions>
+                <a href="{{ route('owner.backup.download') }}" class="eb-panel-action">Export SQL &rarr;</a>
+            </x-slot:headerActions>
 
-    <div class="card p-4 mb-4">
-        <div class="mb-3">
-            <h2 class="h5 fw-bold mb-1">Recent backup exports</h2>
-            <p class="muted small mb-0">Exports are streamed to the administrator and are not retained as downloadable files on the server.</p>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-striped mb-0 align-middle">
-                <thead><tr><th>Generated</th><th>Requested by</th><th>Status</th></tr></thead>
-                <tbody>
-                    @forelse ($backupHistory as $backup)
-                        <tr>
-                            <td>{{ $backup->created_at?->format('M d, Y H:i') ?? '-' }}</td>
-                            <td>{{ $backup->user?->name ?? 'Former account' }}</td>
-                            <td><span class="badge bg-success">Export generated</span></td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="3" class="text-center py-3 muted">No completed backup exports are recorded yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Backup Instructions and Actions -->
-    <div class="card p-4 mb-4">
-        <h5 class="fw-bold mb-2">Manual Snapshot & Recovery</h5>
-        <p class="muted mb-3">Download a SQL export of the current application database. Keep the downloaded file in an access-controlled location because it contains sensitive business and account data.</p>
-        @if ($systemInfo['database'] === 'SQLITE')
-            <p class="text-warning small">This export uses SQLite syntax. Restore it only with SQLite tooling into a separate test database; do not use MySQL restore instructions.</p>
-        @else
-            <p class="text-warning small">Test restoration only on a separate staging database. This SQL file contains DROP TABLE statements and must never be imported into the live database for testing.</p>
-        @endif
-        <div class="d-flex gap-3 flex-wrap align-items-center">
-            <a href="{{ route('owner.backup.download') }}" class="btn btn-primary px-4">
-                Export & Download Database (.sql)
-            </a>
-            <span class="muted small">Current server time: {{ $systemInfo['server_time'] }}</span>
-        </div>
-    </div>
-
-    <!-- Tables List -->
-    <div class="card p-0 overflow-hidden">
-        <div class="p-3 border-bottom">
-            <h5 class="fw-bold mb-0">Database Tables Inventory</h5>
-        </div>
-        <table class="table table-striped mb-0 align-middle">
-            <thead>
-                <tr>
-                    <th>Table Name</th>
-                    <th class="text-center">Estimated Rows</th>
-                    <th class="text-end">Storage Size</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($tables as $table)
-                    <tr>
-                        <td><span class="font-monospace accent">{{ $table->name }}</span></td>
-                        <td class="text-center">{{ number_format($table->rows) }}</td>
-                        <td class="text-end muted">{{ round($table->size / 1024, 1) }} KB</td>
-                    </tr>
-                @empty
-                    <tr><td colspan="3" class="text-center py-3 muted">No tables detected.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
+            @if (empty($tables))
+                <x-empty-state title="No tables found" description="Unable to inspect schema tables for this database driver." />
+            @else
+                <div class="table-responsive">
+                    <table class="table eb-table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Table Name</th>
+                                <th class="text-center">Rows</th>
+                                <th class="text-end">Approx. Size</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($tables as $table)
+                                <tr>
+                                    <td class="font-monospace small text-warning">{{ $table->name }}</td>
+                                    <td class="text-center text-white fw-semibold">{{ number_format($table->rows) }}</td>
+                                    <td class="text-end small" style="color: #BDBDBD;">{{ round($table->size / 1024, 1) }} KB</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </x-table-card>
     </div>
 </div>
 @endsection

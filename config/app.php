@@ -74,4 +74,6 @@ return [
         // 'ExampleClass' => App\Example\ExampleClass::class,
     ])->toArray(),
 
+    'mobile_apk_url' => env('MOBILE_APK_URL'),
+
 ];

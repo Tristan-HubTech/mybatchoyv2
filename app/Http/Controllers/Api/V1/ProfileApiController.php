@@ -80,8 +80,11 @@ class ProfileApiController extends Controller
 
             if ($currentTokenId) {
                 $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+                \App\Models\UserActiveSession::where('user_id', $user->id)
+                    ->where('session_hash', '!=', app(\App\Services\ActiveSessionManager::class)->hashApiTokenId($currentTokenId))
+                    ->delete();
             } else {
-                $user->tokens()->delete();
+                app(\App\Services\ActiveSessionManager::class)->invalidateAllForUser($user);
             }
 
             $this->recordProfileEvent($request, $user, 'profile_password_changed', 'Account password changed by the account owner.');

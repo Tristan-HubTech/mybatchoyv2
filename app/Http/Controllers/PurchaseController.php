@@ -18,17 +18,47 @@ class PurchaseController extends Controller
     {
         $validated = $request->validate([
             'supplier' => 'nullable|integer|exists:suppliers,id',
+            'search' => 'nullable|string|max:100',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
         ]);
 
-        $purchases = Purchase::with(['supplier', 'creator', 'items'])->latest();
+        $search = trim((string) ($validated['search'] ?? ''));
+
+        $purchases = Purchase::with(['supplier', 'creator', 'items.inventoryItem.unit'])
+            ->latest('purchase_date')
+            ->latest('id');
 
         if (!empty($validated['supplier'])) {
             $purchases->where('supplier_id', $validated['supplier']);
         }
 
+        if ($search !== '') {
+            $purchases->where(function ($q) use ($search) {
+                $q->where('purchase_number', 'like', '%' . $search . '%')
+                    ->orWhere('notes', 'like', '%' . $search . '%')
+                    ->orWhereHas('supplier', function ($sq) use ($search) {
+                        $sq->where('name', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        if (!empty($validated['from'])) {
+            $purchases->whereDate('purchase_date', '>=', $validated['from']);
+        }
+
+        if (!empty($validated['to'])) {
+            $purchases->whereDate('purchase_date', '<=', $validated['to']);
+        }
+
+        $totalRecords = (clone $purchases)->count();
+        $combinedTotal = (float) (clone $purchases)->sum('total_amount');
+
         return view('purchases.index', [
-            'purchases' => $purchases->get(),
+            'purchases' => $purchases->paginate(15)->withQueryString(),
             'suppliers' => Supplier::orderBy('name')->get(),
+            'totalRecords' => $totalRecords,
+            'combinedTotal' => $combinedTotal,
         ]);
     }
 

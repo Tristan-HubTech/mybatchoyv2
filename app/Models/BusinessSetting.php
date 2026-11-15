@@ -43,4 +43,14 @@ class BusinessSetting extends Model
 
         return Cache::remember('business_settings.current', 60, fn () => static::find(1));
     }
+
+    public static function cachedSessionTimeoutMinutes(): int
+    {
+        $configured = static::current()?->session_timeout_minutes;
+        if ($configured !== null) {
+            return max(5, min(240, (int) $configured));
+        }
+
+        return max(5, min(240, (int) config('session.lifetime', 20)));
+    }
 }

@@ -120,10 +120,16 @@ class MobileApiVerificationTest extends TestCase
         $ownerMobileLogin->assertOk()
             ->assertJsonPath('user.username', 'mob-owner')
             ->assertJsonPath('user.role', 'owner');
-        $this->assertNotEmpty($ownerMobileLogin->json('token'));
+        $ownerMobileToken = (string) $ownerMobileLogin->json('token');
+        $this->assertNotEmpty($ownerMobileToken);
+
+        // Log out mobile session before logging in on Web under Single Active Session policy
+        $this->apiWithToken($ownerMobileToken)->postJson('/api/v1/auth/logout')->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->app['auth']->shouldUse('web');
 
         // Owner logs in on Website with the same credentials
-        $this->post('/login', [
+        $this->withoutToken()->post('/login', [
             'username' => 'mob-owner',
             'password' => 'Password123!',
         ])->assertRedirect(route('owner.dashboard'));
@@ -138,10 +144,16 @@ class MobileApiVerificationTest extends TestCase
         $staffMobileLogin->assertOk()
             ->assertJsonPath('user.username', 'mob-staff')
             ->assertJsonPath('user.role', 'staff');
-        $this->assertNotEmpty($staffMobileLogin->json('token'));
+        $staffMobileToken = (string) $staffMobileLogin->json('token');
+        $this->assertNotEmpty($staffMobileToken);
+
+        // Log out mobile session before logging in on Web
+        $this->apiWithToken($staffMobileToken)->postJson('/api/v1/auth/logout')->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->app['auth']->shouldUse('web');
 
         // Staff logs in on Website with the same credentials
-        $this->post('/login', [
+        $this->withoutToken()->post('/login', [
             'username' => 'mob-staff',
             'password' => 'Password123!',
         ])->assertRedirect(route('staff.dashboard'));

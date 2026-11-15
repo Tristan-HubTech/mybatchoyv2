@@ -7,6 +7,7 @@ use App\Mail\PasswordResetCode;
 use App\Models\AuditLog;
 use App\Models\BusinessSetting;
 use App\Models\User;
+use App\Services\ActiveSessionManager;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class AuthApiController extends Controller
     private const DECAY_SECONDS = 900;
     private const RESET_CODE_MINUTES = 10;
 
-    public function login(Request $request): JsonResponse
+    public function login(Request $request, ActiveSessionManager $sessions): JsonResponse
     {
         $credentials = $request->validate([
             'username' => 'required|string|max:255',
@@ -66,24 +67,26 @@ class AuthApiController extends Controller
             ]);
         }
 
+        $deviceName = trim((string) ($credentials['device_name'] ?? 'MyBatchoy Mobile'));
+        $claimed = $sessions->claimForApi(
+            $user,
+            $request,
+            $deviceName,
+            fn ($expiresAt) => $user->createToken($deviceName !== '' ? $deviceName : 'MyBatchoy Mobile', ['*'], $expiresAt)
+        );
+
         RateLimiter::clear($ipKey);
         RateLimiter::clear($accountKey);
 
         $user->forceFill(['last_login_at' => now()])->save();
         $this->recordAuthEvent($request, $user, 'login', 'User signed in via mobile application.');
 
-        $timeoutMinutes = $this->resolveSessionTimeoutMinutes();
-        $expiresAt = now()->addMinutes($timeoutMinutes);
-        $deviceName = trim((string) ($credentials['device_name'] ?? 'MyBatchoy Mobile'));
-
-        $token = $user->createToken($deviceName !== '' ? $deviceName : 'MyBatchoy Mobile', ['*'], $expiresAt);
-
         return response()->json([
             'message' => 'Authenticated successfully.',
-            'token' => $token->plainTextToken,
+            'token' => $claimed['token']->plainTextToken,
             'token_type' => 'Bearer',
-            'expires_at' => $expiresAt->toIso8601String(),
-            'session_timeout_minutes' => $timeoutMinutes,
+            'expires_at' => $claimed['expires_at']->toIso8601String(),
+            'session_timeout_minutes' => $claimed['timeout_minutes'],
             'user' => self::formatUser($user),
         ]);
     }
@@ -91,7 +94,7 @@ class AuthApiController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user()->load('role');
-        $settings = Schema::hasTable('business_settings') ? BusinessSetting::current() : null;
+        $settings = ActiveSessionManager::hasTable('business_settings') ? BusinessSetting::current() : null;
 
         return response()->json([
             'user' => self::formatUser($user),
@@ -104,11 +107,12 @@ class AuthApiController extends Controller
         ]);
     }
 
-    public function logout(Request $request): JsonResponse
+    public function logout(Request $request, ActiveSessionManager $sessions): JsonResponse
     {
         $user = $request->user();
 
         if ($user) {
+            $sessions->releaseForApi($user);
             $token = $user->currentAccessToken();
             if ($token && method_exists($token, 'delete')) {
                 $token->delete();
@@ -254,7 +258,7 @@ class AuthApiController extends Controller
             ])->save();
 
             DB::table('password_resets')->where('email', $email)->delete();
-            $user->tokens()->delete();
+            app(ActiveSessionManager::class)->invalidateAllForUser($user);
 
             AuditLog::create([
                 'user_id' => $user->id,
@@ -307,7 +311,7 @@ class AuthApiController extends Controller
 
     private function resolveSessionTimeoutMinutes(): int
     {
-        if (!Schema::hasTable('business_settings')) {
+        if (!ActiveSessionManager::hasTable('business_settings')) {
             return 60;
         }
 

@@ -103,8 +103,11 @@ class TransactionApiController extends Controller
             return [$tx->load(['inventoryItem.unit', 'user']), $item->fresh(['category', 'unit'])];
         });
 
+        $formattedQty = self::formatQty((float) $item->current_quantity);
+        $unit = $item->unit?->short_name ?: 'units';
+
         return response()->json([
-            'message' => 'Stock in recorded successfully.',
+            'message' => "Stock successfully added for {$item->name}. The new quantity is now {$formattedQty} {$unit}.",
             'transaction' => self::formatTransaction($transaction),
             'item' => InventoryApiController::formatItem($item),
         ], 201);
@@ -119,10 +122,15 @@ class TransactionApiController extends Controller
         ]);
 
         [$transaction, $item] = DB::transaction(function () use ($validated, $request): array {
-            $item = InventoryItem::whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
+            $item = InventoryItem::with('unit')->whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
 
             if ($item->current_quantity < $validated['quantity']) {
-                throw ValidationException::withMessages(['quantity' => ['Insufficient stock.']]);
+                $requested = self::formatQty((float) $validated['quantity']);
+                $available = self::formatQty((float) $item->current_quantity);
+                $unit = $item->unit?->short_name ?: 'units';
+                throw ValidationException::withMessages([
+                    'quantity' => ["Cannot remove {$requested} {$unit}. Only {$available} {$unit} of {$item->name} is currently in stock."],
+                ]);
             }
 
             $previousQuantity = (float) $item->current_quantity;
@@ -154,8 +162,11 @@ class TransactionApiController extends Controller
             return [$tx->load(['inventoryItem.unit', 'user']), $item->fresh(['category', 'unit'])];
         });
 
+        $formattedQty = self::formatQty((float) $item->current_quantity);
+        $unit = $item->unit?->short_name ?: 'units';
+
         return response()->json([
-            'message' => 'Stock out recorded successfully.',
+            'message' => "Stock successfully removed for {$item->name}. The remaining quantity is now {$formattedQty} {$unit}.",
             'transaction' => self::formatTransaction($transaction),
             'item' => InventoryApiController::formatItem($item),
         ], 201);
@@ -200,8 +211,11 @@ class TransactionApiController extends Controller
             return [$tx->load(['inventoryItem.unit', 'user']), $item->fresh(['category', 'unit'])];
         });
 
+        $formattedQty = self::formatQty((float) $item->current_quantity);
+        $unit = $item->unit?->short_name ?: 'units';
+
         return response()->json([
-            'message' => 'Stock adjustment saved successfully.',
+            'message' => "Stock quantity corrected for {$item->name}. The new quantity is now {$formattedQty} {$unit}.",
             'transaction' => self::formatTransaction($transaction),
             'item' => InventoryApiController::formatItem($item),
         ], 201);
@@ -216,10 +230,15 @@ class TransactionApiController extends Controller
         ]);
 
         [$transaction, $item] = DB::transaction(function () use ($validated, $request): array {
-            $item = InventoryItem::whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
+            $item = InventoryItem::with('unit')->whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
 
             if ($item->current_quantity < $validated['quantity']) {
-                throw ValidationException::withMessages(['quantity' => ['Spoilage quantity cannot exceed current stock.']]);
+                $requested = self::formatQty((float) $validated['quantity']);
+                $available = self::formatQty((float) $item->current_quantity);
+                $unit = $item->unit?->short_name ?: 'units';
+                throw ValidationException::withMessages([
+                    'quantity' => ["Cannot record {$requested} {$unit} as spoilage. Only {$available} {$unit} of {$item->name} is currently in stock."],
+                ]);
             }
 
             $previousQuantity = (float) $item->current_quantity;
@@ -251,11 +270,21 @@ class TransactionApiController extends Controller
             return [$tx->load(['inventoryItem.unit', 'user']), $item->fresh(['category', 'unit'])];
         });
 
+        $formattedQty = self::formatQty((float) $item->current_quantity);
+        $unit = $item->unit?->short_name ?: 'units';
+
         return response()->json([
-            'message' => 'Spoilage recorded successfully.',
+            'message' => "Spoilage recorded for {$item->name}. The remaining quantity is now {$formattedQty} {$unit}.",
             'transaction' => self::formatTransaction($transaction),
             'item' => InventoryApiController::formatItem($item),
         ], 201);
+    }
+
+    private static function formatQty(float $quantity): string
+    {
+        $formatted = rtrim(rtrim(number_format($quantity, 3, '.', ''), '0'), '.');
+
+        return ($formatted === '' || $formatted === '-0') ? '0' : $formatted;
     }
 
     public static function formatTransaction(InventoryTransaction $tx): array

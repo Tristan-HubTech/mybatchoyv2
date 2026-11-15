@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
 import { apiRequest, generateIdempotencyKey } from '../services/api';
 import { COLORS } from '../theme/colors';
 import { InventoryItemModel, StockTransactionModel, TransactionType } from '../types/models';
@@ -21,31 +23,63 @@ import {
   SkeletonList,
 } from '../components/UI';
 
-type ScreenMode = 'history' | 'stock_in' | 'stock_out' | 'adjustment' | 'spoilage';
+export type ScreenMode = 'history' | 'stock_in' | 'stock_out' | 'adjustment' | 'spoilage';
+
+export interface TransactionLaunchRequest {
+  mode: ScreenMode;
+  itemId?: number;
+  nonce: number;
+}
 
 const MODE_TABS: { key: ScreenMode; label: string }[] = [
-  { key: 'history', label: 'History' },
-  { key: 'stock_in', label: '+ Stock In' },
-  { key: 'stock_out', label: '- Stock Out' },
-  { key: 'adjustment', label: 'Adjustment' },
+  { key: 'history', label: 'Stock History' },
+  { key: 'stock_in', label: '+ Add Stock' },
+  { key: 'stock_out', label: '- Remove Stock' },
+  { key: 'adjustment', label: 'Correct Stock' },
   { key: 'spoilage', label: 'Spoilage' },
 ];
 
 const TYPE_FILTERS = [
-  { key: 'all', label: 'All Types' },
-  { key: 'stock_in', label: 'Stock In' },
-  { key: 'stock_out', label: 'Stock Out' },
-  { key: 'adjustment', label: 'Adjustment' },
+  { key: 'all', label: 'All Activity' },
+  { key: 'stock_in', label: 'Added Stock' },
+  { key: 'stock_out', label: 'Removed Stock' },
+  { key: 'adjustment', label: 'Corrected Qty' },
   { key: 'spoilage', label: 'Spoilage' },
 ];
 
-export const TransactionsScreen: React.FC = () => {
+const REASON_PRESETS: Record<Exclude<ScreenMode, 'history'>, string[]> = {
+  stock_in: ['Morning delivery', 'Market purchase', 'Supplier restock'],
+  stock_out: ['Kitchen cooking prep', 'Used for batchoy broth', 'Transferred to serving'],
+  adjustment: ['Daily physical count', 'Scale / count recheck', 'Fix earlier count'],
+  spoilage: ['Expired ingredient', 'Spoiled / sour', 'Damaged or spilled'],
+};
+
+const formatTxTypeLabel = (t: TransactionType) => {
+  switch (t) {
+    case 'stock_in':
+      return 'ADDED STOCK';
+    case 'stock_out':
+      return 'REMOVED STOCK';
+    case 'adjustment':
+      return 'CORRECTED COUNT';
+    case 'spoilage':
+      return 'SPOILAGE';
+    default:
+      return String(t).replace('_', ' ').toUpperCase();
+  }
+};
+
+export const TransactionsScreen: React.FC<{
+  launchRequest?: TransactionLaunchRequest | null;
+}> = ({ launchRequest }) => {
+  const { user } = useAuth();
   const [mode, setMode] = useState<ScreenMode>('history');
   const [transactions, setTransactions] = useState<StockTransactionModel[]>([]);
   const [items, setItems] = useState<InventoryItemModel[]>([]);
 
   const [typeFilter, setTypeFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [itemFilter, setItemFilter] = useState('');
 
   const [selectedItemId, setSelectedItemId] = useState<number>(0);
   const [quantity, setQuantity] = useState('');
@@ -58,6 +92,19 @@ export const TransactionsScreen: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!launchRequest) return;
+    setMode(launchRequest.mode);
+    if (launchRequest.itemId) {
+      setSelectedItemId(launchRequest.itemId);
+    }
+    setQuantity('');
+    setReason('');
+    setError(null);
+    setSuccess(null);
+    setIdempotencyKey(generateIdempotencyKey());
+  }, [launchRequest]);
 
   const loadData = useCallback(
     async (isRefresh = false) => {
@@ -95,6 +142,20 @@ export const TransactionsScreen: React.FC = () => {
   }, [loadData]);
 
   const selectedItem = items.find((i) => i.id === selectedItemId) || null;
+  const filteredPickerItems = items.filter((item) => {
+    const q = itemFilter.trim().toLowerCase();
+    if (!q) return true;
+    return item.name.toLowerCase().includes(q) || item.sku.toLowerCase().includes(q);
+  });
+
+  const parsedNum = quantity.trim() === '' ? Number.NaN : Number(quantity);
+  const hasValidNum =
+    !Number.isNaN(parsedNum) && (mode === 'adjustment' ? parsedNum >= 0 : parsedNum > 0);
+  const exceedsStock =
+    (mode === 'stock_out' || mode === 'spoilage') &&
+    Boolean(selectedItem) &&
+    hasValidNum &&
+    parsedNum > (selectedItem?.current_quantity ?? 0);
 
   const switchMode = (nextMode: ScreenMode) => {
     setMode(nextMode);
@@ -109,29 +170,42 @@ export const TransactionsScreen: React.FC = () => {
     setSuccess(null);
 
     if (!selectedItem) {
-      setError('Select an inventory item.');
+      setError('Step 1: Please choose an item first.');
       return;
     }
 
     const numVal = Number(quantity);
-    if (Number.isNaN(numVal) || (mode !== 'adjustment' && numVal <= 0) || numVal < 0) {
-      setError('Enter a valid positive quantity.');
+    if (
+      quantity.trim() === '' ||
+      Number.isNaN(numVal) ||
+      (mode !== 'adjustment' && numVal <= 0) ||
+      numVal < 0
+    ) {
+      setError(
+        mode === 'adjustment'
+          ? 'Enter a valid physical count (0 or higher).'
+          : 'Enter a quantity greater than 0.'
+      );
       return;
     }
 
     if ((mode === 'stock_out' || mode === 'spoilage') && numVal > selectedItem.current_quantity) {
       setError(
-        `Insufficient stock. Current available quantity is ${selectedItem.current_quantity} ${selectedItem.unit_short_name}.`
+        `Not enough stock. Currently available: ${selectedItem.current_quantity} ${selectedItem.unit_short_name}.`
       );
       return;
     }
 
     if ((mode === 'adjustment' || mode === 'spoilage') && !reason.trim()) {
-      setError('A reason is required for stock adjustments and spoilage records.');
+      setError(
+        mode === 'spoilage'
+          ? 'Please enter a short spoilage reason (example: Expired or damaged).'
+          : 'Please explain why you are correcting this stock quantity.'
+      );
       return;
     }
 
-    if (mode === 'adjustment' || mode === 'spoilage') {
+    if (mode === 'stock_out' || mode === 'adjustment' || mode === 'spoilage') {
       setConfirmVisible(true);
     } else {
       executeTransaction();
@@ -206,6 +280,13 @@ export const TransactionsScreen: React.FC = () => {
       }
       keyboardShouldPersistTaps="handled"
     >
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>Stock Actions &amp; History</Text>
+        <Text style={styles.pageSubtitle}>
+          Add new deliveries, remove ingredients used in the kitchen, fix wrong counts, or check past activity.
+        </Text>
+      </View>
+
       <FilterChips
         options={MODE_TABS}
         selected={mode}
@@ -219,21 +300,47 @@ export const TransactionsScreen: React.FC = () => {
         <View style={styles.formCard}>
           <Text style={styles.formTitle}>
             {mode === 'stock_in'
-              ? 'Record Stock In'
+              ? 'Add Stock (New Delivery or Restock)'
               : mode === 'stock_out'
-              ? 'Record Stock Out'
+              ? 'Remove Stock (Kitchen Usage)'
               : mode === 'adjustment'
-              ? 'Stock Physical Adjustment'
-              : 'Record Spoilage'}
+              ? 'Correct Stock Quantity (Physical Count)'
+              : 'Record Spoilage (Expired or Damaged)'}
+          </Text>
+          <Text style={styles.formSubtitle}>
+            {mode === 'stock_in'
+              ? 'Use this when new supplies arrive and need to be added to what we have.'
+              : mode === 'stock_out'
+              ? 'Use this when taking ingredients out for cooking, broth, or prep.'
+              : mode === 'adjustment'
+              ? 'Use this after counting items on the shelf so the app matches the real amount.'
+              : 'Use this when food spoils, expires, or spills. Warning: This reduces available stock.'}
           </Text>
 
-          <Text style={styles.pickerLabel}>Select Inventory Item *</Text>
+          {mode === 'spoilage' && (
+            <View style={styles.spoilageMetaBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <Ionicons name="warning" size={16} color={COLORS.danger} style={{ marginRight: 6 }} />
+                <Text style={styles.spoilageWarnTitle}>Spoilage reduces stock permanently</Text>
+              </View>
+              <Text style={styles.spoilageMetaText}>
+                Date: {new Date().toLocaleDateString()} • Recorded by: {user?.name || 'Staff Member'}
+              </Text>
+            </View>
+          )}
+
+          <Text style={styles.pickerLabel}>Step 1: Choose Item *</Text>
+          <SearchBar
+            value={itemFilter}
+            onChangeText={setItemFilter}
+            placeholder="Type item name to find it faster..."
+          />
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={{ marginBottom: 14 }}
           >
-            {items.map((item) => {
+            {filteredPickerItems.map((item) => {
               const active = item.id === selectedItemId;
               return (
                 <TouchableOpacity
@@ -245,7 +352,7 @@ export const TransactionsScreen: React.FC = () => {
                     {item.name}
                   </Text>
                   <Text style={styles.itemChipSub}>
-                    {item.current_quantity} {item.unit_short_name}
+                    On hand: {item.current_quantity} {item.unit_short_name}
                   </Text>
                 </TouchableOpacity>
               );
@@ -254,7 +361,7 @@ export const TransactionsScreen: React.FC = () => {
 
           {selectedItem && (
             <View style={styles.currentBalanceBox}>
-              <Text style={styles.balanceLabel}>Selected Item Balance:</Text>
+              <Text style={styles.balanceLabel}>Currently Available:</Text>
               <Text style={styles.balanceValue}>
                 {selectedItem.current_quantity} {selectedItem.unit_short_name} (
                 {selectedItem.status})
@@ -264,26 +371,48 @@ export const TransactionsScreen: React.FC = () => {
 
           <FormField
             label={
-              mode === 'adjustment'
-                ? `New Actual Count (${selectedItem?.unit_short_name || 'units'})`
-                : `Quantity (${selectedItem?.unit_short_name || 'units'})`
+              mode === 'stock_in'
+                ? `Step 2: Quantity Received (${selectedItem?.unit_short_name || 'units'})`
+                : mode === 'stock_out'
+                ? `Step 2: Quantity to Remove (${selectedItem?.unit_short_name || 'units'})`
+                : mode === 'adjustment'
+                ? `Step 2: Real Count on Shelf (${selectedItem?.unit_short_name || 'units'})`
+                : `Step 2: Spoiled Quantity (${selectedItem?.unit_short_name || 'units'})`
             }
             value={quantity}
             onChangeText={setQuantity}
-            placeholder="0.00"
+            placeholder="e.g. 5"
             keyboardType="decimal-pad"
             required
           />
 
+          {exceedsStock && selectedItem && (
+            <View style={styles.overStockWarn}>
+              <Ionicons name="alert-circle" size={18} color={COLORS.danger} style={{ marginRight: 8 }} />
+              <Text style={styles.overStockWarnText}>
+                You entered {parsedNum} {selectedItem.unit_short_name}, which is more than the{' '}
+                {selectedItem.current_quantity} {selectedItem.unit_short_name} currently available.
+              </Text>
+            </View>
+          )}
+
           <FormField
-            label="Reason / Reference Note"
+            label={
+              mode === 'stock_in'
+                ? 'Step 3: Supplier or Receipt Note (Optional)'
+                : mode === 'stock_out'
+                ? 'Step 3: Why is this being removed? (Optional)'
+                : mode === 'adjustment'
+                ? 'Step 3: Why does the count need correcting?'
+                : 'Step 3: Spoilage Reason'
+            }
             value={reason}
             onChangeText={setReason}
             placeholder={
               mode === 'stock_in'
-                ? 'e.g. Morning delivery'
+                ? 'e.g. Public Market Meat Shop / Receipt #104'
                 : mode === 'stock_out'
-                ? 'e.g. Kitchen preparation'
+                ? 'e.g. Kitchen cooking prep'
                 : mode === 'adjustment'
                 ? 'e.g. End-of-day physical recount'
                 : 'e.g. Expired / damaged batch'
@@ -291,9 +420,93 @@ export const TransactionsScreen: React.FC = () => {
             required={mode === 'adjustment' || mode === 'spoilage'}
           />
 
+          <Text style={styles.quickReasonLabel}>Quick tap a common reason:</Text>
+          <View style={styles.quickReasonRow}>
+            {REASON_PRESETS[mode].map((preset) => (
+              <TouchableOpacity
+                key={preset}
+                style={styles.quickReasonChip}
+                onPress={() => setReason(preset)}
+              >
+                <Text style={styles.quickReasonText}>{preset}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {selectedItem && hasValidNum && (
+            <View style={styles.reviewBox}>
+              <Text style={styles.reviewTitle}>Step 4: Review Before Saving</Text>
+              <Text style={styles.reviewLine}>
+                Item: <Text style={styles.reviewBold}>{selectedItem.name}</Text>
+              </Text>
+              <Text style={styles.reviewLine}>
+                Current Quantity:{' '}
+                <Text style={styles.reviewBold}>
+                  {selectedItem.current_quantity} {selectedItem.unit_short_name}
+                </Text>
+              </Text>
+              {mode === 'stock_in' && (
+                <Text style={[styles.reviewLine, { color: COLORS.success }]}>
+                  New Quantity After Adding:{' '}
+                  <Text style={styles.reviewBold}>
+                    {(selectedItem.current_quantity + parsedNum).toFixed(2).replace(/\.00$/, '')}{' '}
+                    {selectedItem.unit_short_name}
+                  </Text>
+                </Text>
+              )}
+              {(mode === 'stock_out' || mode === 'spoilage') && (
+                <Text
+                  style={[
+                    styles.reviewLine,
+                    { color: exceedsStock ? COLORS.danger : COLORS.warning },
+                  ]}
+                >
+                  Remaining Stock After Saving:{' '}
+                  <Text style={styles.reviewBold}>
+                    {Math.max(0, selectedItem.current_quantity - parsedNum)
+                      .toFixed(2)
+                      .replace(/\.00$/, '')}{' '}
+                    {selectedItem.unit_short_name}
+                  </Text>
+                </Text>
+              )}
+              {mode === 'adjustment' && (
+                <>
+                  <Text style={styles.reviewLine}>
+                    Corrected Real Count:{' '}
+                    <Text style={[styles.reviewBold, { color: COLORS.secondary }]}>
+                      {parsedNum} {selectedItem.unit_short_name}
+                    </Text>
+                  </Text>
+                  <Text style={styles.reviewLine}>
+                    Difference:{' '}
+                    <Text style={styles.reviewBold}>
+                      {parsedNum - selectedItem.current_quantity >= 0 ? '+' : ''}
+                      {(parsedNum - selectedItem.current_quantity).toFixed(2).replace(/\.00$/, '')}{' '}
+                      {selectedItem.unit_short_name}
+                    </Text>
+                  </Text>
+                  <Text style={styles.reviewLine}>
+                    Reason:{' '}
+                    <Text style={styles.reviewBold}>{reason.trim() || 'Required above'}</Text>
+                  </Text>
+                </>
+              )}
+            </View>
+          )}
+
           <PrimaryButton
-            title={`Submit ${mode.replace('_', ' ').toUpperCase()}`}
-            variant={mode === 'spoilage' ? 'danger' : 'primary'}
+            title={
+              mode === 'stock_in'
+                ? 'Step 5: Confirm Add Stock'
+                : mode === 'stock_out'
+                ? 'Step 5: Review & Remove Stock'
+                : mode === 'adjustment'
+                ? 'Step 5: Review & Save Correction'
+                : 'Step 5: Review & Record Spoilage'
+            }
+            variant={mode === 'spoilage' || mode === 'stock_out' ? 'danger' : 'primary'}
+            disabled={exceedsStock}
             onPress={validateAndPrompt}
             loading={submitting}
           />
@@ -303,7 +516,7 @@ export const TransactionsScreen: React.FC = () => {
           <SearchBar
             value={search}
             onChangeText={setSearch}
-            placeholder="Search item, SKU, user, or reason..."
+            placeholder="Search by item name, staff member, or note..."
           />
           <FilterChips
             options={TYPE_FILTERS}
@@ -316,8 +529,8 @@ export const TransactionsScreen: React.FC = () => {
           ) : transactions.length === 0 ? (
             <EmptyState
               icon="swap-vertical-outline"
-              title="No stock transactions found"
-              subtitle="Recorded stock movements appear here and cannot be modified or deleted."
+              title="No stock history found"
+              subtitle="Recorded stock additions, removals, corrections, and spoilage appear here permanently."
             />
           ) : (
             transactions.map((tx) => (
@@ -325,12 +538,12 @@ export const TransactionsScreen: React.FC = () => {
                 <View style={styles.txHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.txItemName}>{tx.item_name}</Text>
-                    <Text style={styles.txMeta}>SKU: {tx.item_sku}</Text>
+                    <Text style={styles.txMeta}>Code: {tx.item_sku}</Text>
                   </View>
                   <Text
                     style={[styles.txBadge, { color: typeBadgeColor(tx.transaction_type) }]}
                   >
-                    {tx.transaction_type.replace('_', ' ').toUpperCase()}
+                    {formatTxTypeLabel(tx.transaction_type)}
                   </Text>
                 </View>
 
@@ -358,14 +571,22 @@ export const TransactionsScreen: React.FC = () => {
 
       <ConfirmModal
         visible={confirmVisible}
-        title={mode === 'spoilage' ? 'Confirm Spoilage Record' : 'Confirm Stock Adjustment'}
+        title={
+          mode === 'spoilage'
+            ? 'Confirm Spoilage Record'
+            : mode === 'stock_out'
+            ? 'Confirm Stock Removal'
+            : 'Confirm Stock Correction'
+        }
         message={
           mode === 'spoilage'
-            ? `Deduct ${quantity} ${selectedItem?.unit_short_name} from ${selectedItem?.name} as spoilage? Transaction history is permanent.`
-            : `Set ${selectedItem?.name} stock level from ${selectedItem?.current_quantity} to ${quantity} ${selectedItem?.unit_short_name}?`
+            ? `Record ${quantity} ${selectedItem?.unit_short_name} of ${selectedItem?.name} as spoiled? This reduces available stock from ${selectedItem?.current_quantity} to ${Math.max(0, (selectedItem?.current_quantity ?? 0) - Number(quantity || 0)).toFixed(2).replace(/\.00$/, '')} ${selectedItem?.unit_short_name}.`
+            : mode === 'stock_out'
+            ? `Remove ${quantity} ${selectedItem?.unit_short_name} of ${selectedItem?.name}? Remaining stock will be ${Math.max(0, (selectedItem?.current_quantity ?? 0) - Number(quantity || 0)).toFixed(2).replace(/\.00$/, '')} ${selectedItem?.unit_short_name}.`
+            : `Correct ${selectedItem?.name} count from ${selectedItem?.current_quantity} to ${quantity} ${selectedItem?.unit_short_name}? Reason: "${reason.trim()}".`
         }
         confirmText="Confirm & Save"
-        confirmVariant={mode === 'spoilage' ? 'danger' : 'primary'}
+        confirmVariant={mode === 'spoilage' || mode === 'stock_out' ? 'danger' : 'primary'}
         loading={submitting}
         onConfirm={executeTransaction}
         onCancel={() => setConfirmVisible(false)}
@@ -394,7 +615,108 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '700',
+    marginBottom: 4,
+  },
+  pageHeader: {
+    marginBottom: 10,
+  },
+  pageTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  pageSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  formSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
     marginBottom: 12,
+  },
+  spoilageMetaBox: {
+    backgroundColor: 'rgba(229, 57, 53, 0.14)',
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+  spoilageWarnTitle: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  spoilageMetaText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+  },
+  overStockWarn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(229, 57, 53, 0.18)',
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+  overStockWarnText: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  quickReasonLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  quickReasonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  quickReasonChip: {
+    backgroundColor: COLORS.navBackground,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  quickReasonText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  reviewBox: {
+    backgroundColor: COLORS.navBackground,
+    borderWidth: 1,
+    borderColor: COLORS.secondary,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  reviewTitle: {
+    color: COLORS.secondary,
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  reviewLine: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginBottom: 3,
+  },
+  reviewBold: {
+    color: COLORS.text,
+    fontWeight: '700',
   },
   pickerLabel: {
     color: COLORS.textSecondary,

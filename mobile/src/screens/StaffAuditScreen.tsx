@@ -26,7 +26,7 @@ import {
 
 const SECTION_TABS = [
   { key: 'staff', label: 'Staff Accounts' },
-  { key: 'audit', label: 'Audit Logs' },
+  { key: 'audit', label: 'Activity History' },
 ];
 
 export const StaffAuditScreen: React.FC = () => {
@@ -306,7 +306,7 @@ export const StaffAuditScreen: React.FC = () => {
                           { color: member.is_active ? COLORS.danger : COLORS.success },
                         ]}
                       >
-                        {member.is_active ? 'Deactivate' : 'Activate'}
+                        {member.is_active ? 'Disable Account' : 'Enable Account'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -316,19 +316,22 @@ export const StaffAuditScreen: React.FC = () => {
           </>
         ) : (
           <>
-            <Text style={[styles.heading, { marginBottom: 10 }]}>
-              System Audit Logs (Immutable)
+            <Text style={[styles.heading, { marginBottom: 4 }]}>
+              Activity History
+            </Text>
+            <Text style={[styles.cardSub, { marginBottom: 10 }]}>
+              Permanent record of logins, staff changes, and inventory updates. Records cannot be edited or deleted.
             </Text>
             <SearchBar
               value={search}
               onChangeText={setSearch}
-              placeholder="Search action, user, or details..."
+              placeholder="Search person, action, or details..."
             />
 
             {loading && auditLogs.length === 0 ? (
               <SkeletonList count={5} height={82} />
             ) : auditLogs.length === 0 ? (
-              <EmptyState icon="shield-checkmark-outline" title="No audit logs found" />
+              <EmptyState icon="shield-checkmark-outline" title="No activity history found" />
             ) : (
               auditLogs.map((log) => (
                 <View key={log.id} style={styles.card}>
@@ -463,13 +466,13 @@ export const StaffAuditScreen: React.FC = () => {
 
       <ConfirmModal
         visible={!!statusTarget}
-        title={statusTarget?.is_active ? 'Deactivate Staff Account' : 'Activate Staff Account'}
+        title={statusTarget?.is_active ? 'Disable Staff Account?' : 'Enable Staff Account?'}
         message={
           statusTarget?.is_active
-            ? `Deactivate ${statusTarget.name}? They will be signed out of all devices immediately.`
-            : `Reactivate ${statusTarget?.name} so they can sign in again?`
+            ? `Warning: Disabling ${statusTarget.name} will sign them out immediately and block access until enabled again.`
+            : `Allow ${statusTarget?.name} to sign in and use MyBatchoy again?`
         }
-        confirmText={statusTarget?.is_active ? 'Deactivate' : 'Activate'}
+        confirmText={statusTarget?.is_active ? 'Yes, Disable' : 'Yes, Enable'}
         confirmVariant={statusTarget?.is_active ? 'danger' : 'primary'}
         loading={submitting}
         onConfirm={handleToggleStatus}

@@ -22,17 +22,19 @@ class OwnerSeeder extends Seeder
         }
 
         // Create the admin user
-        User::create([
-            'role_id'   => $ownerRole->id,
-            'name'      => 'Owner Admin',
-            'username'  => 'owner',
-            'email'     => 'owner@mybatchoy.local',
-            // Suggested strong password (you can change it later)
-            'password'  => Hash::make('Str0ng!Pass2024'),
-            'is_active'=> true,
-        ]);
+        User::firstOrCreate(
+            ['username' => 'owner'],
+            [
+                'role_id' => $ownerRole->id,
+                'name' => 'Owner Admin',
+                'email' => 'owner@mybatchoy.local',
+                'phone' => '+63 917 555 0100',
+                'password' => Hash::make('Str0ng!Pass2024'),
+                'is_active' => true,
+            ]
+        );
 
-        $this->command->info('Owner admin user created successfully.');
+        $this->command?->info('Owner admin user seeded successfully.');
     }
 }
 

@@ -78,6 +78,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // Business Settings & Inventory Config
             Route::get('/settings', [SettingsApiController::class, 'index'])->name('settings.index');
             Route::put('/settings', [SettingsApiController::class, 'update'])->middleware('idempotent')->name('settings.update');
+            Route::post('/settings/security/mfa-challenge', [SettingsApiController::class, 'sendMfaChallenge'])->name('settings.mfa.challenge');
+            Route::post('/settings/security/sessions/{user}/revoke', [SettingsApiController::class, 'revokeActiveSession'])->name('settings.sessions.revoke');
             Route::post('/settings/categories', [SettingsApiController::class, 'storeCategory'])->middleware('idempotent')->name('settings.categories.store');
             Route::put('/settings/categories/{category}', [SettingsApiController::class, 'updateCategory'])->middleware('idempotent')->name('settings.categories.update');
             Route::patch('/settings/categories/{category}/status', [SettingsApiController::class, 'updateCategoryStatus'])->middleware('idempotent')->name('settings.categories.status');

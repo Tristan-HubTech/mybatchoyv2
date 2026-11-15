@@ -17,6 +17,7 @@ class InventoryItemController extends Controller
         $validated = $request->validate([
             'search' => 'nullable|string|max:100',
             'category' => 'nullable|integer|exists:inventory_categories,id',
+            'status' => 'nullable|in:in_stock,low_stock,out_of_stock',
         ]);
 
         $search = trim((string) ($validated['search'] ?? ''));
@@ -32,9 +33,19 @@ class InventoryItemController extends Controller
             ->when(!empty($validated['category']), function ($q) use ($validated) {
                 $q->where('inventory_items.category_id', $validated['category']);
             })
+            ->when(!empty($validated['status']), function ($q) use ($validated) {
+                if ($validated['status'] === 'out_of_stock') {
+                    $q->where('inventory_items.current_quantity', '<=', 0);
+                } elseif ($validated['status'] === 'low_stock') {
+                    $q->where('inventory_items.current_quantity', '>', 0)
+                        ->whereColumn('inventory_items.current_quantity', '<=', 'inventory_items.minimum_stock_level');
+                } elseif ($validated['status'] === 'in_stock') {
+                    $q->whereColumn('inventory_items.current_quantity', '>', 'inventory_items.minimum_stock_level');
+                }
+            })
             ->distinct();
 
-        $items = $query->latest('inventory_items.created_at')->get();
+        $items = $query->latest('inventory_items.created_at')->paginate(15)->withQueryString();
         $categories = InventoryCategory::orderBy('name')->get();
 
         return view('inventory.index', compact('items', 'categories'));

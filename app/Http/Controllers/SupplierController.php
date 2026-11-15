@@ -14,17 +14,25 @@ class SupplierController extends Controller
             'search' => 'nullable|string|max:100',
         ]);
 
-        $suppliers = Supplier::query();
+        $suppliers = Supplier::query()
+            ->withCount('purchases')
+            ->withSum('purchases as total_spent', 'total_amount')
+            ->with(['purchases' => function ($q) {
+                $q->latest('purchase_date')->take(5);
+            }]);
 
         if (!empty($validated['search'])) {
-            $search = $validated['search'];
+            $search = trim((string) $validated['search']);
             $suppliers->where(function ($query) use ($search) {
                 $query->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('contact_person', 'like', '%' . $search . '%');
+                    ->orWhere('contact_person', 'like', '%' . $search . '%')
+                    ->orWhere('phone', 'like', '%' . $search . '%');
             });
         }
 
-        return view('suppliers.index', ['suppliers' => $suppliers->latest()->get()]);
+        return view('suppliers.index', [
+            'suppliers' => $suppliers->latest()->paginate(15)->withQueryString(),
+        ]);
     }
 
     public function create()
@@ -60,6 +68,10 @@ class SupplierController extends Controller
 
     public function edit(Supplier $supplier)
     {
+        $supplier->load(['purchases' => function ($q) {
+            $q->latest('purchase_date')->take(10);
+        }]);
+
         return view('suppliers.form', ['supplier' => $supplier]);
     }
 

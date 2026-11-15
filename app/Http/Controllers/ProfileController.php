@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,7 +17,12 @@ class ProfileController extends Controller
 {
     public function show(Request $request)
     {
-        return view('profile.show', ['user' => $request->user()->load('role')]);
+        $user = $request->user();
+        if (!$user->relationLoaded('role')) {
+            $user->setRelation('role', Role::cachedModelById($user->role_id));
+        }
+
+        return view('profile.show', ['user' => $user]);
     }
 
     public function update(Request $request)
@@ -65,6 +71,7 @@ class ProfileController extends Controller
         });
 
         $request->session()->put('password_hash_' . Auth::getDefaultDriver(), $user->getAuthPassword());
+        app(\App\Services\ActiveSessionManager::class)->rotateWebSessionAfterPasswordChange($user, $request);
 
         return redirect()->route('profile.show')->with('success', 'Password changed.');
     }

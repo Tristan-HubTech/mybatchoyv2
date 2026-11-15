@@ -20,6 +20,7 @@ class User extends Authenticatable
         'phone',
         'password',
         'mfa_enabled',
+        'mfa_secret',
         'is_active',
         'last_login_at',
     ];
@@ -27,6 +28,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'mfa_secret',
     ];
 
     protected $casts = [
@@ -34,12 +36,18 @@ class User extends Authenticatable
         'last_login_at' => 'datetime',
         'password' => 'hashed',
         'mfa_enabled' => 'boolean',
+        'mfa_secret' => 'encrypted',
         'is_active' => 'boolean',
     ];
 
     public function role()
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function activeSession()
+    {
+        return $this->hasOne(UserActiveSession::class);
     }
 
     public function auditLogs()

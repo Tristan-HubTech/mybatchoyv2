@@ -7,7 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
     <script>
         // Immediately restore collapsed sidebar state to prevent layout flash
         (function() {
@@ -25,6 +25,7 @@
             --sidebar: #0A0A0A;         /* deep black */
             --surface: #1B1B1B;         /* charcoal */
             --surface-2: #222222;
+            --input-bg: #202020;        /* standard dark input surface */
             --border: #333333;          /* subtle dark gray */
             --primary: #E53935;         /* strong red primary accent */
             --primary-soft: #EF5350;    /* secondary red */
@@ -48,7 +49,7 @@
             font-family: 'Poppins', sans-serif;
             background: var(--bg);
             color: var(--text);
-            overflow-x: hidden;
+            overflow-x: clip;
         }
 
         a { text-decoration: none; }
@@ -235,18 +236,16 @@
             display: none !important;
         }
 
-        /* PAGE ENTRANCE TRANSITION */
+        /* PAGE ENTRANCE TRANSITION (avoid transform/forwards so nested modals keep root stacking context) */
         .page-fade-in {
-            animation: pageFadeIn 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: pageFadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
         }
         @keyframes pageFadeIn {
             from {
                 opacity: 0;
-                transform: translateY(6px);
             }
             to {
                 opacity: 1;
-                transform: translateY(0);
             }
         }
 
@@ -265,7 +264,7 @@
             }
         }
 
-        /* APP SHELL & ANIMATED SIDEBAR */
+        /* APP SHELL & ANIMATED SIDEBAR (TARGET DESIGN REFERENCE) */
         .app-shell {
             display: flex;
             min-height: 100vh;
@@ -275,13 +274,16 @@
 
         .sidebar {
             width: var(--sidebar-expanded-width);
-            background: var(--sidebar);
-            border-right: 1px solid var(--border);
-            padding: 1rem 0.85rem 0.85rem;
+            background:
+                radial-gradient(circle at 0% 100%, rgba(229, 57, 53, 0.22) 0%, rgba(255, 193, 7, 0.08) 22%, transparent 48%),
+                #0A0A0A;
+            border-right: 1px solid #262626;
+            padding: clamp(0.45rem, 1vh, 0.85rem) 0.75rem clamp(0.45rem, 0.9vh, 0.75rem);
             position: sticky;
             top: 0;
             height: 100vh;
-            max-height: 100vh;
+            height: 100dvh;
+            max-height: 100dvh;
             display: flex;
             flex-direction: column;
             transition: width var(--sidebar-transition-duration) var(--sidebar-timing);
@@ -295,45 +297,78 @@
             width: var(--sidebar-collapsed-width);
         }
 
-        /* Sidebar Header */
+        /* Sidebar Brand Lockup (Eustace Batchoy Unli Sabaw) */
         .sidebar-header {
             display: flex;
             align-items: center;
             gap: 0.65rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 0.75rem;
+            padding: 0.1rem 0.25rem clamp(0.35rem, 0.9vh, 0.75rem);
+            border-bottom: 1px solid #222222;
+            margin-bottom: clamp(0.25rem, 0.65vh, 0.5rem);
             flex-shrink: 0;
             position: relative;
+        }
+        .brand-mascot-wrap {
+            width: clamp(34px, 5vh, 44px);
+            height: clamp(34px, 5vh, 44px);
+            border-radius: 50%;
+            border: 2px solid #FFC107;
+            box-shadow: 0 0 12px rgba(229, 57, 53, 0.45);
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #1B1B1B;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .brand-mascot-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         .brand-meta {
             display: flex;
             flex-direction: column;
             overflow: hidden;
             min-width: 0;
+            line-height: 1.05;
+        }
+        .brand-script {
+            font-family: 'Kaushan Script', cursive;
+            font-size: clamp(0.95rem, 1.6vh, 1.12rem);
+            color: #FFFFFF;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
         }
         .brand-text {
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: var(--text);
+            font-size: clamp(0.98rem, 1.7vh, 1.15rem);
+            font-weight: 800;
+            color: #FFC107;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
             white-space: nowrap;
         }
         .brand-subtitle {
-            font-size: 0.65rem;
-            color: var(--secondary);
+            display: inline-block;
+            align-self: flex-start;
+            background: #E53935;
+            color: #FFFFFF;
+            font-size: 0.58rem;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 600;
+            letter-spacing: 0.1em;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 2px;
             white-space: nowrap;
         }
         .sidebar-toggle {
-            margin-left: auto;
-            border: 1px solid var(--border);
-            background: #181818;
-            color: var(--muted);
+            border: 1px solid #2E2E2E;
+            background: #171717;
+            color: #FFFFFF;
             border-radius: 8px;
-            width: 32px;
-            height: 32px;
+            width: 36px;
+            height: 36px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -343,48 +378,23 @@
         }
         .sidebar-toggle:hover,
         .sidebar-toggle:focus-visible {
-            background: rgba(229, 57, 53, 0.16);
+            background: rgba(229, 57, 53, 0.18);
             border-color: var(--primary);
             color: #FFFFFF;
             outline: none;
         }
 
-        /* User badge */
-        .sidebar-user {
-            background: #141414;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 0.65rem 0.8rem;
-            margin-bottom: 0.75rem;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-        .sidebar-user-meta {
-            font-size: 0.7rem;
-            color: #777777;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin-bottom: 0.15rem;
-            white-space: nowrap;
-        }
-        .sidebar-user-name {
-            font-weight: 600;
-            font-size: 0.88rem;
-            color: var(--text);
-            white-space: nowrap;
-        }
-
-        /* Navigation List */
+        /* Compact Navigation List */
         .sidebar-nav {
             display: flex;
             flex-direction: column;
-            gap: 0.65rem;
+            gap: clamp(0.18rem, 0.9vh, 0.58rem);
             flex: 1 1 auto;
             min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
             padding-right: 2px;
-            padding-bottom: 0.5rem;
+            padding-bottom: 0.25rem;
             scrollbar-width: thin;
             scrollbar-color: rgba(229, 57, 53, 0.25) transparent;
         }
@@ -398,22 +408,20 @@
             background: rgba(229, 57, 53, 0.3);
             border-radius: 4px;
         }
-        .sidebar-nav::-webkit-scrollbar-thumb:hover {
-            background: rgba(229, 57, 53, 0.55);
-        }
 
         .nav-group {
             display: flex;
             flex-direction: column;
-            gap: 0.2rem;
+            gap: clamp(0.08rem, 0.35vh, 0.22rem);
         }
         .nav-group-label {
-            font-size: 0.66rem;
-            color: #777777;
+            font-size: clamp(0.6rem, 0.98vh, 0.68rem);
+            line-height: 1.15;
+            color: #888888;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 600;
-            padding: 0.35rem 0.5rem 0.15rem;
+            letter-spacing: 0.09em;
+            font-weight: 700;
+            padding: clamp(0.14rem, 0.4vh, 0.35rem) 0.68rem 0.08rem;
             white-space: nowrap;
             overflow: hidden;
         }
@@ -421,84 +429,79 @@
         .nav-link {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            padding: 0.62rem 0.75rem;
+            gap: 0.65rem;
+            padding: clamp(0.28rem, 0.85vh, 0.62rem) 0.68rem;
+            min-height: clamp(30px, 5.1vh, 46px);
             border-radius: 10px;
-            color: var(--muted);
-            transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+            color: #E2E2E2;
+            transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
             border: 1px solid transparent;
-            font-weight: 500;
-            font-size: 0.88rem;
+            font-weight: 600;
+            font-size: clamp(0.88rem, 1.75vh, 1.02rem);
+            line-height: 1.2;
             white-space: nowrap;
             position: relative;
             cursor: pointer;
         }
         .nav-link:hover,
         .nav-link:focus-visible {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: #333333;
+            background: rgba(255, 255, 255, 0.06);
+            border-color: #2E2E2E;
             color: #FFFFFF;
             outline: none;
         }
-        /* Active nav item: red indicator, red border */
+        /* Active nav item: solid red pill matching IMAGE 1 */
         .nav-link.active {
-            background: rgba(229, 57, 53, 0.14);
-            border-color: var(--primary);
-            border-left: 3px solid var(--primary);
+            background: linear-gradient(90deg, #E53935 0%, #B71C1C 100%);
+            border-color: rgba(255, 255, 255, 0.14);
             color: #FFFFFF;
-            font-weight: 600;
-            box-shadow: 0 4px 14px rgba(229, 57, 53, 0.18);
+            font-weight: 700;
+            box-shadow: 0 6px 16px rgba(229, 57, 53, 0.35);
         }
         .nav-link .nav-icon {
             width: 20px;
+            height: 20px;
             text-align: center;
-            color: var(--muted);
-            font-weight: 700;
+            color: #BDBDBD;
             flex-shrink: 0;
-            font-size: 1rem;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            transition: color 0.18s ease;
+            transition: color 0.18s ease, transform 0.18s ease;
         }
         .nav-link:hover .nav-icon {
             color: #FFFFFF;
+            transform: scale(1.05);
         }
-        /* Selected icon: yellow accent used sparingly */
         .nav-link.active .nav-icon {
-            color: var(--secondary);
+            color: #FFFFFF !important;
+        }
+        .nav-link.logout-btn {
+            margin-top: 0.15rem;
+            border-top: 1px solid #1F1F1F;
+            border-radius: 10px;
         }
         .nav-link.logout-btn:hover,
         .nav-link.logout-btn:focus-visible {
             background: rgba(229, 57, 53, 0.15);
             border-color: rgba(229, 57, 53, 0.4);
-            color: #EF5350;
+            color: #FFC107;
         }
 
         /* Fading elements during collapse */
-        .brand-text,
-        .brand-subtitle,
-        .sidebar-user-meta,
-        .sidebar-user-name,
+        .brand-meta,
         .nav-group-label,
         .nav-label {
             transition: opacity 160ms ease, transform 160ms ease, max-width var(--sidebar-transition-duration) var(--sidebar-timing);
-            max-width: 180px;
+            max-width: 210px;
             white-space: nowrap;
             overflow: hidden;
-            display: inline-block;
         }
 
-        html.sidebar-is-collapsed .brand-text,
-        html.sidebar-is-collapsed .brand-subtitle,
-        html.sidebar-is-collapsed .sidebar-user-meta,
-        html.sidebar-is-collapsed .sidebar-user-name,
+        html.sidebar-is-collapsed .brand-meta,
         html.sidebar-is-collapsed .nav-group-label,
         html.sidebar-is-collapsed .nav-label,
-        .sidebar.collapsed .brand-text,
-        .sidebar.collapsed .brand-subtitle,
-        .sidebar.collapsed .sidebar-user-meta,
-        .sidebar.collapsed .sidebar-user-name,
+        .sidebar.collapsed .brand-meta,
         .sidebar.collapsed .nav-group-label,
         .sidebar.collapsed .nav-label {
             opacity: 0;
@@ -506,24 +509,24 @@
             transform: translateX(-8px);
             pointer-events: none;
         }
+        html.sidebar-is-collapsed .nav-group-label,
+        .sidebar.collapsed .nav-group-label {
+            height: 0;
+            padding: 0;
+            margin: 0;
+        }
 
-        /* Collapsed mode tooltips */
+        /* Collapsed mode layout */
         html.sidebar-is-collapsed .sidebar-header,
         .sidebar.collapsed .sidebar-header {
             justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
         }
-        html.sidebar-is-collapsed .sidebar-toggle,
-        .sidebar.collapsed .sidebar-toggle {
-            margin-left: 0;
-        }
-        html.sidebar-is-collapsed .brand-mark,
-        .sidebar.collapsed .brand-mark {
-            display: none;
-        }
-        html.sidebar-is-collapsed .sidebar-user,
-        .sidebar.collapsed .sidebar-user {
-            padding: 0.5rem 0.2rem;
-            text-align: center;
+        html.sidebar-is-collapsed .brand-mascot-wrap,
+        .sidebar.collapsed .brand-mascot-wrap {
+            width: clamp(32px, 4.5vh, 40px);
+            height: clamp(32px, 4.5vh, 40px);
         }
 
         html.sidebar-is-collapsed .nav-link,
@@ -531,6 +534,7 @@
             justify-content: center;
             padding-left: 0;
             padding-right: 0;
+            gap: 0;
         }
         html.sidebar-is-collapsed .nav-link .nav-icon,
         .sidebar.collapsed .nav-link .nav-icon {
@@ -567,12 +571,13 @@
             transform: translateY(-50%) scale(1);
         }
 
-        /* MAIN PANEL */
+        /* MAIN PANEL & TOPBAR (TARGET DESIGN REFERENCE) */
         .main-panel {
             flex: 1;
             display: flex;
             flex-direction: column;
             min-width: 0;
+            background: #111111;
             transition: margin-left var(--sidebar-transition-duration) var(--sidebar-timing);
         }
 
@@ -581,44 +586,502 @@
             justify-content: space-between;
             align-items: center;
             gap: 1rem;
-            padding: 1.15rem 1.75rem;
-            border-bottom: 1px solid var(--border);
-            background: rgba(10, 10, 10, 0.95);
-            backdrop-filter: blur(12px);
+            padding: 0.7rem 1.5rem;
+            min-height: 60px;
+            border-bottom: 1px solid #262626;
+            background: #0D0D0D;
             position: sticky;
             top: 0;
-            z-index: 10;
+            z-index: 20;
+        }
+        .topbar-title-text {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #BDBDBD;
+            letter-spacing: 0.01em;
         }
         .page-title {
-            font-size: 1.55rem;
-            font-weight: 700;
+            font-size: 1.5rem;
+            font-weight: 800;
             margin: 0;
             color: #FFFFFF;
         }
         .topbar-meta {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.85rem;
             color: var(--muted);
         }
-        .user-pill {
+        .topbar-bell-btn {
+            position: relative;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: #181818;
+            border: 1px solid #2E2E2E;
+            color: #FFFFFF;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            background: #1A1A1A;
-            border: 1px solid var(--border);
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .topbar-bell-btn:hover {
+            border-color: var(--primary);
+            background: rgba(229, 57, 53, 0.14);
+            color: #FFFFFF;
+        }
+        .topbar-bell-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
             border-radius: 999px;
-            padding: 0.45rem 0.8rem;
+            background: #E53935;
+            color: #FFFFFF;
+            font-size: 0.65rem;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #0D0D0D;
+        }
+        .user-profile-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            background: #171717;
+            border: 1px solid #2E2E2E;
+            border-radius: 12px;
+            padding: 0.32rem 0.75rem 0.32rem 0.4rem;
             color: var(--text);
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .user-profile-trigger:hover {
+            border-color: #444444;
+            background: #1F1F1F;
+        }
+        .user-avatar-circle {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2B2B2B 0%, #1A1A1A 100%);
+            border: 1.5px solid #FFC107;
+            color: #FFFFFF;
+            font-weight: 700;
             font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .user-profile-info {
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+            line-height: 1.15;
+        }
+        .user-profile-name {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+        .user-profile-role {
+            font-size: 0.7rem;
+            color: #BDBDBD;
+            font-weight: 500;
         }
         .content-area {
-            padding: 1.75rem;
+            padding: 1.35rem 1.5rem 1.5rem;
             flex: 1;
         }
         .content-shell {
-            max-width: 1500px;
+            max-width: 1480px;
             margin: 0 auto;
+        }
+
+        /* TARGET REFERENCE DASHBOARD DESIGN SYSTEM */
+        .eb-hero-banner {
+            position: relative;
+            background: #141414;
+            border: 1px solid #2E2E2E;
+            border-radius: 16px;
+            overflow: hidden;
+            min-height: 128px;
+            margin-bottom: 1.15rem;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+        }
+        .eb-hero-banner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(115deg, transparent 42%, rgba(229, 57, 53, 0.32) 48%, rgba(229, 57, 53, 0.08) 56%, transparent 62%),
+                linear-gradient(115deg, transparent 52%, rgba(255, 193, 7, 0.28) 57%, transparent 65%);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .eb-hero-art {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 44%;
+            max-width: 460px;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .eb-hero-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            opacity: 0.92;
+        }
+        .eb-hero-art::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, #141414 0%, rgba(20, 20, 20, 0.86) 24%, rgba(20, 20, 20, 0.15) 65%, rgba(20, 20, 20, 0.25) 100%);
+        }
+        .eb-hero-content {
+            position: relative;
+            z-index: 2;
+            padding: 1.25rem 1.5rem;
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+        .eb-hero-greeting {
+            font-size: 1.65rem;
+            font-weight: 800;
+            color: #FFFFFF;
+            margin: 0 0 0.2rem;
+            letter-spacing: -0.01em;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+        }
+        .eb-hero-sub {
+            color: #D0D0D0;
+            font-size: 0.9rem;
+            margin: 0;
+            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+        }
+        .eb-hero-controls {
+            background: rgba(17, 17, 17, 0.88);
+            backdrop-filter: blur(8px);
+            border: 1px solid #333333;
+            border-radius: 12px;
+            padding: 0.45rem 0.65rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* KPI Cards (Circular Badge + Big Figure + Sparkline Wave) */
+        .eb-kpi-card {
+            position: relative;
+            background: #1B1B1B;
+            border: 1px solid #2E2E2E;
+            border-radius: 14px;
+            padding: 1rem 1.1rem;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42);
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .eb-kpi-card:hover {
+            transform: translateY(-2px);
+            border-color: #444444;
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.6);
+        }
+        .eb-kpi-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .eb-kpi-circle.kpi-red {
+            background: linear-gradient(135deg, #EF5350 0%, #C62828 100%);
+            box-shadow: 0 6px 16px rgba(229, 57, 53, 0.38);
+            color: #FFFFFF;
+        }
+        .eb-kpi-circle.kpi-yellow {
+            background: linear-gradient(135deg, #FFCA28 0%, #F57F17 100%);
+            box-shadow: 0 6px 16px rgba(255, 193, 7, 0.34);
+            color: #111111;
+        }
+        .eb-kpi-circle.kpi-green {
+            background: linear-gradient(135deg, #66BB6A 0%, #2E7D32 100%);
+            box-shadow: 0 6px 16px rgba(76, 175, 80, 0.34);
+            color: #FFFFFF;
+        }
+        .eb-kpi-body {
+            flex: 1;
+            min-width: 0;
+            z-index: 2;
+        }
+        .eb-kpi-label {
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: #BDBDBD;
+            margin-bottom: 0.1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .eb-kpi-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #FFFFFF;
+            line-height: 1.12;
+            letter-spacing: -0.02em;
+        }
+        .eb-kpi-trend {
+            font-size: 0.72rem;
+            font-weight: 600;
+            margin-top: 0.2rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .eb-kpi-spark {
+            width: 68px;
+            height: 36px;
+            flex-shrink: 0;
+            opacity: 0.92;
+        }
+
+        /* Dashboard Section Cards */
+        .eb-panel-card {
+            background: #1B1B1B;
+            border: 1px solid #2E2E2E;
+            border-radius: 14px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+        }
+        .eb-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .eb-panel-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            margin: 0;
+        }
+        .eb-view-all-link {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #E53935;
+            transition: color 0.15s ease;
+        }
+        .eb-view-all-link:hover {
+            color: #FFC107;
+        }
+
+        /* Donut Chart with Center Overlay */
+        .eb-donut-stage {
+            position: relative;
+            width: 175px;
+            height: 175px;
+            margin: 0 auto;
+            flex-shrink: 0;
+        }
+        .eb-donut-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            text-align: center;
+        }
+        .eb-donut-center-num {
+            font-size: 1.85rem;
+            font-weight: 800;
+            color: #FFFFFF;
+            line-height: 1.05;
+        }
+        .eb-donut-center-lbl {
+            font-size: 0.75rem;
+            color: #BDBDBD;
+            font-weight: 500;
+        }
+        .eb-legend-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            flex: 1;
+            min-width: 155px;
+        }
+        .eb-legend-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: #E0E0E0;
+            padding: 0.35rem 0.55rem;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .eb-legend-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        /* Solid Transaction Type Pill Badges (Matching IMAGE 1) */
+        .eb-tx-pill {
+            display: inline-block;
+            padding: 0.25rem 0.65rem;
+            border-radius: 6px;
+            font-size: 0.73rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            text-align: center;
+            min-width: 84px;
+        }
+        .eb-tx-pill.tx-in {
+            background: #2E7D32;
+            color: #FFFFFF;
+        }
+        .eb-tx-pill.tx-out {
+            background: #C62828;
+            color: #FFFFFF;
+        }
+        .eb-tx-pill.tx-adj {
+            background: #FFC107;
+            color: #111111;
+        }
+        .eb-tx-pill.tx-spoil {
+            background: #7F1D1D;
+            color: #FFCDD2;
+            border: 1px solid #E53935;
+        }
+
+        /* Purchase Summary Split Layout */
+        .eb-purchase-total-box {
+            border-left: 3px solid #FFC107;
+            padding-left: 1rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* System Status & APK Promo Card */
+        .eb-sys-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            text-align: center;
+        }
+        .eb-sys-item {
+            padding: 0.6rem 0.35rem;
+            border-right: 1px solid #2A2A2A;
+        }
+        .eb-sys-item:last-child {
+            border-right: none;
+        }
+        .eb-apk-card {
+            background: radial-gradient(circle at 85% 50%, rgba(229, 57, 53, 0.24) 0%, #1B1B1B 70%);
+            border: 1px solid #2E2E2E;
+            border-radius: 14px;
+            padding: 1rem 1.15rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.85rem;
+            height: 100%;
+        }
+        .eb-apk-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: linear-gradient(90deg, #FFC107 0%, #FF9800 100%);
+            color: #111111 !important;
+            font-weight: 800;
+            font-size: 0.76rem;
+            padding: 0.45rem 0.85rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+            transition: transform 0.18s ease;
+        }
+        .eb-apk-btn:hover {
+            transform: translateY(-1px);
+            color: #000000 !important;
+        }
+
+        /* Uniform Quick Action Pills */
+        .eb-quick-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            min-height: 38px;
+            padding: 0.42rem 0.9rem;
+            border-radius: 9px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            border: 1px solid #333333;
+            background: #222222;
+            color: #FFFFFF;
+            transition: all 0.18s ease;
+        }
+        .eb-quick-btn:hover {
+            border-color: var(--primary);
+            background: rgba(229, 57, 53, 0.14);
+            color: #FFFFFF;
+            transform: translateY(-1px);
+        }
+        .eb-quick-btn.eb-quick-primary {
+            background: linear-gradient(90deg, #E53935 0%, #C62828 100%);
+            border-color: #EF5350;
+            box-shadow: 0 4px 12px rgba(229, 57, 53, 0.28);
+        }
+        .eb-quick-btn.eb-quick-primary:hover {
+            background: #D32F2F;
+        }
+
+        /* App Footer Matching IMAGE 1 */
+        .eb-footer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem 1.5rem;
+            border-top: 1px solid #222222;
+            background: #0A0A0A;
+            font-size: 0.78rem;
+            color: #9E9E9E;
+        }
+        .eb-footer-tagline {
+            font-family: 'Kaushan Script', cursive;
+            font-size: 1.05rem;
+            color: #FFC107;
+            letter-spacing: 0.02em;
         }
 
         /* MOBILE SLIDE-OUT DRAWER (< 992px) */
@@ -631,7 +1094,9 @@
                 top: 0;
                 left: 0;
                 bottom: 0;
-                height: 100vh !important;
+                height: 100vh;
+                height: 100dvh !important;
+                max-height: 100dvh;
                 width: 270px !important;
                 z-index: 1045 !important;
                 transform: translateX(-100%);
@@ -658,15 +1123,75 @@
                 opacity: 1;
                 pointer-events: auto;
             }
-            .topbar, .content-area { padding: 1rem; }
+            .topbar, .content-area { padding: 0.85rem 1rem; }
+            .eb-hero-art { width: 55%; opacity: 0.35; }
+            .eb-hero-greeting { font-size: 1.3rem; }
+            .eb-kpi-spark { display: none; }
         }
+
+        /* USABILITY & ACCESSIBILITY ENHANCEMENTS */
+        .nav-subhint {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--muted);
+            font-weight: 400;
+            line-height: 1.15;
+            margin-top: 1px;
+        }
+        .sidebar.collapsed .nav-subhint,
+        html.sidebar-is-collapsed .nav-subhint {
+            display: none;
+        }
+        .table-light, .table thead th {
+            background-color: #141414 !important;
+            color: #FFFFFF !important;
+            border-color: var(--border) !important;
+        }
+        .form-label {
+            font-weight: 600;
+            color: #FFFFFF;
+            margin-bottom: 0.35rem;
+        }
+        .field-help {
+            display: block;
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-top: 0.3rem;
+            line-height: 1.4;
+        }
+        .required-star {
+            color: #E53935;
+            font-weight: 700;
+        }
+        .btn:focus-visible,
+        .form-control:focus-visible,
+        .form-select:focus-visible,
+        .nav-link:focus-visible {
+            outline: 2px solid #FFC107 !important;
+            outline-offset: 2px;
+        }
+        .page-guide-subtitle {
+            color: var(--muted);
+            font-size: 0.98rem;
+            margin-top: 0.35rem;
+            margin-bottom: 0;
+        }
+
+        @include('layouts.partials.design-system-css')
     </style>
 </head>
 <body class="@auth management-body @else public-body @endauth">
     @auth
         @php
             $currentUser = Auth::user();
-            $userRole = $currentUser?->role?->name;
+            $userRole = $currentUser
+                ? ($currentUser->relationLoaded('role')
+                    ? $currentUser->role?->name
+                    : \App\Models\Role::cachedNameById($currentUser->role_id))
+                : null;
+            $urgentAlertCount = (isset($lowStockCount, $outOfStockCount))
+                ? ((int) $lowStockCount + (int) $outOfStockCount)
+                : \App\Models\InventoryItem::cachedUrgentAlertCount();
         @endphp
         <div class="app-shell">
             <!-- Mobile Backdrop -->
@@ -674,85 +1199,137 @@
 
             <aside class="sidebar" id="sidebar">
                 <div class="sidebar-header">
-                    <div class="brand-mark">MB</div>
-                    <div class="brand-meta">
-                        <div class="brand-text">MyBatchoy</div>
-                        <div class="brand-subtitle">Inventory System</div>
+                    <div class="brand-mascot-wrap">
+                        <img src="{{ asset('images/eustace-mascot.jpg') }}" alt="Eustace Batchoy Logo">
                     </div>
-                    <button class="sidebar-toggle" id="sidebarToggleBtn" type="button" aria-label="Toggle sidebar navigation" aria-controls="sidebar-navigation" aria-expanded="true" onclick="toggleSidebar()">
-                        ☰
-                    </button>
-                </div>
-
-                <div class="sidebar-user">
-                    <div class="sidebar-user-meta">{{ $userRole === 'owner' ? 'Owner / Admin' : 'Staff Member' }}</div>
-                    <div class="sidebar-user-name">{{ $currentUser->name }}</div>
+                    <div class="brand-meta">
+                        <span class="brand-script">Eustace</span>
+                        <span class="brand-text">BATCHOY <span class="visually-hidden">MyBatchoy</span></span>
+                        <span class="brand-subtitle">UNLI SABAW</span>
+                    </div>
                 </div>
 
                 <nav class="sidebar-nav" id="sidebar-navigation">
                     @if($userRole === 'owner')
                         <!-- 1. OVERVIEW -->
                         <div class="nav-group">
-                            <div class="nav-group-label">Overview</div>
+                            <div class="nav-group-label">OVERVIEW</div>
                             <a class="nav-link {{ request()->routeIs('dashboard','owner.dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" title="Dashboard" data-tooltip="Dashboard">
-                                <span class="nav-icon">◈</span><span class="nav-label">Dashboard</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Dashboard</span>
                             </a>
                         </div>
 
                         <!-- 2. INVENTORY -->
                         <div class="nav-group">
-                            <div class="nav-group-label">Inventory</div>
+                            <div class="nav-group-label">INVENTORY</div>
                             <a class="nav-link {{ request()->routeIs('owner.inventory.*') ? 'active' : '' }}" href="{{ route('owner.inventory.index') }}" title="Inventory" data-tooltip="Inventory">
-                                <span class="nav-icon">▣</span><span class="nav-label">Inventory</span>
+                                <span class="nav-icon" style="color: #FFC107;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Inventory</span>
                             </a>
                             <a class="nav-link {{ request()->routeIs('owner.transactions.*') ? 'active' : '' }}" href="{{ route('owner.transactions.index') }}" title="Stock Transactions" data-tooltip="Stock Transactions">
-                                <span class="nav-icon">⇄</span><span class="nav-label">Stock Transactions</span>
+                                <span class="nav-icon" style="color: #4CAF50;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5zm14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Stock Transactions</span>
                             </a>
                         </div>
 
                         <!-- 3. PURCHASING -->
                         <div class="nav-group">
-                            <div class="nav-group-label">Purchasing</div>
+                            <div class="nav-group-label">PURCHASING</div>
                             <a class="nav-link {{ request()->routeIs('owner.suppliers.*') ? 'active' : '' }}" href="{{ route('owner.suppliers.index') }}" title="Suppliers" data-tooltip="Suppliers">
-                                <span class="nav-icon">◎</span><span class="nav-label">Suppliers</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Suppliers</span>
                             </a>
                             <a class="nav-link {{ request()->routeIs('owner.purchases.*') ? 'active' : '' }}" href="{{ route('owner.purchases.index') }}" title="Purchases" data-tooltip="Purchases">
-                                <span class="nav-icon">◫</span><span class="nav-label">Purchases</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Purchases</span>
                             </a>
                         </div>
 
                         <!-- 4. ANALYTICS -->
                         <div class="nav-group">
-                            <div class="nav-group-label">Analytics</div>
+                            <div class="nav-group-label">ANALYTICS</div>
                             <a class="nav-link {{ request()->routeIs('owner.reports.*') ? 'active' : '' }}" href="{{ route('owner.reports.index') }}" title="Reports" data-tooltip="Reports">
-                                <span class="nav-icon">▤</span><span class="nav-label">Reports</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5v12h-2V2h2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Reports</span>
                             </a>
                         </div>
 
                         <!-- 5. ADMINISTRATION -->
                         <div class="nav-group">
-                            <div class="nav-group-label">Administration</div>
+                            <div class="nav-group-label">ADMINISTRATION</div>
                             <a class="nav-link {{ request()->routeIs('owner.staff.*') ? 'active' : '' }}" href="{{ route('owner.staff.index') }}" title="Staff Management" data-tooltip="Staff Management">
-                                <span class="nav-icon">◎</span><span class="nav-label">Staff Management</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1h8Zm-7.978-1A.261.261 0 0 1 7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002a.274.274 0 0 1-.014.002H7.022ZM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM6.936 9.28a5.88 5.88 0 0 0-1.23-.247A7.35 7.35 0 0 0 5 9c-4 0-5 3-5 4 0 .667.333 1 1 1h4.216A2.238 2.238 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816ZM4.92 10A5.493 5.493 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Staff Management</span>
                             </a>
                             <a class="nav-link {{ request()->routeIs('owner.audit.index') ? 'active' : '' }}" href="{{ route('owner.audit.index') }}" title="Audit Logs" data-tooltip="Audit Logs">
-                                <span class="nav-icon">◌</span><span class="nav-label">Audit Logs</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
+                                        <path d="M5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 5 8zm0-2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-1-5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zM4 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm0 2.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Audit Logs</span>
                             </a>
                         </div>
 
                         <!-- 6. ACCOUNT -->
                         <div class="nav-group">
-                            <div class="nav-group-label">Account</div>
+                            <div class="nav-group-label">ACCOUNT</div>
                             <a class="nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}" href="{{ route('profile.show') }}" title="Profile" data-tooltip="Profile">
-                                <span class="nav-icon">◍</span><span class="nav-label">Profile</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                        <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Profile</span>
                             </a>
                             <a class="nav-link {{ request()->routeIs('owner.settings.*') ? 'active' : '' }}" href="{{ route('owner.settings.index') }}" title="Settings" data-tooltip="Settings">
-                                <span class="nav-icon">⚙</span><span class="nav-label">Settings</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Settings</span>
                             </a>
                             <form method="POST" action="{{ route('logout') }}" class="m-0">
                                 @csrf
                                 <button class="nav-link logout-btn w-100 text-start" type="submit" title="Logout" data-tooltip="Logout">
-                                    <span class="nav-icon" style="color: #f87171;">⎋</span>
+                                    <span class="nav-icon" style="color: #FFC107;">
+                                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                                            <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">Logout</span>
                                 </button>
                             </form>
@@ -761,33 +1338,59 @@
                         <!-- STAFF SECTIONS -->
                         <!-- 1. OVERVIEW -->
                         <div class="nav-group">
-                            <div class="nav-group-label">Overview</div>
+                            <div class="nav-group-label">OVERVIEW</div>
                             <a class="nav-link {{ request()->routeIs('dashboard','staff.dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" title="Dashboard" data-tooltip="Dashboard">
-                                <span class="nav-icon">◈</span><span class="nav-label">Dashboard</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Dashboard</span>
                             </a>
                         </div>
 
                         <!-- 2. INVENTORY -->
                         <div class="nav-group">
-                            <div class="nav-group-label">Inventory</div>
+                            <div class="nav-group-label">INVENTORY</div>
                             <a class="nav-link {{ request()->routeIs('staff.inventory.index') ? 'active' : '' }}" href="{{ route('staff.inventory.index') }}" title="Inventory" data-tooltip="Inventory">
-                                <span class="nav-icon">▣</span><span class="nav-label">Inventory</span>
+                                <span class="nav-icon" style="color: #FFC107;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Inventory</span>
                             </a>
                             <a class="nav-link {{ request()->routeIs('staff.transactions.*') ? 'active' : '' }}" href="{{ route('staff.transactions.index') }}" title="Stock Transactions" data-tooltip="Stock Transactions">
-                                <span class="nav-icon">⇄</span><span class="nav-label">Stock Transactions</span>
+                                <span class="nav-icon" style="color: #4CAF50;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5zm14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Stock Transactions</span>
                             </a>
                         </div>
 
                         <!-- 3. ACCOUNT -->
                         <div class="nav-group">
-                            <div class="nav-group-label">Account</div>
+                            <div class="nav-group-label">ACCOUNT</div>
                             <a class="nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}" href="{{ route('profile.show') }}" title="Profile" data-tooltip="Profile">
-                                <span class="nav-icon">◍</span><span class="nav-label">Profile</span>
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                        <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Profile</span>
                             </a>
                             <form method="POST" action="{{ route('logout') }}" class="m-0">
                                 @csrf
                                 <button class="nav-link logout-btn w-100 text-start" type="submit" title="Logout" data-tooltip="Logout">
-                                    <span class="nav-icon" style="color: #f87171;">⎋</span>
+                                    <span class="nav-icon" style="color: #FFC107;">
+                                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                                            <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">Logout</span>
                                 </button>
                             </form>
@@ -798,42 +1401,97 @@
 
             <div class="main-panel">
                 <header class="topbar">
-                    <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-sm btn-outline-primary d-lg-none" type="button" aria-label="Open navigation menu" onclick="toggleMobileDrawer()">
-                            ☰
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="sidebar-toggle" id="sidebarToggleBtn" type="button" aria-label="Toggle sidebar navigation" aria-controls="sidebar-navigation" aria-expanded="true" onclick="toggleSidebar()">
+                            <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
+                            </svg>
                         </button>
-                        <div>
+                        <div class="topbar-title-text d-none d-sm-block">
                             @yield('title', 'Dashboard')
                         </div>
                     </div>
                     <div class="topbar-meta">
-                        <span class="user-pill">
-                            <span class="brand-mark" style="width:24px;height:24px;font-size:0.65rem;">{{ strtoupper(substr($currentUser->name, 0, 1)) }}</span>
-                            {{ $currentUser->name }}
-                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1" id="openHelpGuideBtn" onclick="openHelpGuideModal()" title="Open step-by-step instructions">
+                            <span aria-hidden="true">?</span>
+                            <span class="d-none d-md-inline">Quick Help</span>
+                        </button>
+
+                        <a href="{{ $userRole === 'owner' ? route('owner.inventory.index', ['status' => 'low_stock']) : route('staff.inventory.index', ['status' => 'low_stock']) }}" class="topbar-bell-btn" title="{{ $urgentAlertCount }} stock alert(s) need attention">
+                            <svg width="17" height="17" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zm.995-14.901a1 1 0 1 0-1.99 0A5.002 5.002 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7 0-2.42-1.72-4.44-4.005-4.901z"/>
+                            </svg>
+                            @if($urgentAlertCount > 0)
+                                <span class="topbar-bell-badge">{{ $urgentAlertCount }}</span>
+                            @endif
+                        </a>
+
+                        <div class="dropdown">
+                            <button class="user-profile-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="user-avatar-circle">{{ strtoupper(substr($currentUser->name, 0, 1)) }}</span>
+                                <span class="user-profile-info d-none d-sm-flex">
+                                    <span class="user-profile-name">{{ $currentUser->name }}</span>
+                                    <span class="user-profile-role">{{ $userRole === 'owner' ? 'Owner / Admin' : 'Staff Member' }}</span>
+                                </span>
+                                <svg width="12" height="12" fill="#BDBDBD" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow-lg" style="background: #1B1B1B; border: 1px solid #333333; min-width: 200px;">
+                                <li class="px-3 py-2 border-bottom border-border">
+                                    <div class="fw-bold text-white small">{{ $currentUser->name }}</div>
+                                    <div class="muted" style="font-size: 0.72rem;">{{ $userRole === 'owner' ? 'Owner / Admin' : 'Staff Member' }}</div>
+                                </li>
+                                <li><a class="dropdown-item py-2 small text-white" href="{{ route('profile.show') }}">My Profile</a></li>
+                                <li><button class="dropdown-item py-2 small text-warning" type="button" onclick="openHelpGuideModal()">Quick Help Guide</button></li>
+                                <li><hr class="dropdown-divider border-border"></li>
+                                <li>
+                                    <form method="POST" action="{{ route('logout') }}" class="m-0">
+                                        @csrf
+                                        <button type="submit" class="dropdown-item py-2 small text-danger fw-semibold">Sign Out</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </header>
 
                 <main class="content-area">
                     <div class="content-shell page-fade-in">
+                        @if (session('error'))
+                            <div class="alert alert-danger d-flex align-items-start gap-2 mb-4" role="alert">
+                                <span aria-hidden="true" class="fs-5">&#9888;</span>
+                                <div class="flex-grow-1">
+                                    <strong class="d-block">Action Could Not Be Completed</strong>
+                                    <span>{{ session('error') }}</span>
+                                </div>
+                            </div>
+                        @endif
+
+                        @include('components.first-time-guide')
                         @yield('content')
                     </div>
                 </main>
+
+                <footer class="eb-footer">
+                    <div>© {{ date('Y') }} Eustace Batchoy. All rights reserved. | MyBatchoy v1.0</div>
+                    <div class="eb-footer-tagline">Quality Food, Better Management.</div>
+                </footer>
             </div>
         </div>
 
     @else
         <div class="min-vh-100 d-flex flex-column justify-content-between" style="background: #111111;">
-            <header class="py-3 px-4 border-bottom" style="border-color: var(--border); background: #0A0A0A;">
+            <header class="py-3 px-4 border-bottom" style="border-color: #242424 !important; background: #0A0A0A;">
                 <div class="container d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="brand-mark">MB</div>
+                    <a href="{{ route('login') }}" class="d-flex align-items-center gap-2 text-decoration-none">
+                        <img src="{{ asset('images/eustace-mascot.jpg') }}" alt="Eustace Batchoy" style="width: 34px; height: 34px; border-radius: 8px; border: 1.5px solid #E53935; object-fit: cover;">
                         <div>
-                            <span class="brand-text">MyBatchoy</span>
-                            <span class="badge badge-primary-subtle ms-2" style="font-size: 0.7rem;">Inventory System</span>
+                            <span class="brand-text text-white fw-bold">MyBatchoy</span>
+                            <span class="eb-badge eb-badge-danger ms-2">Inventory System</span>
                         </div>
-                    </div>
-                    <span class="muted small d-none d-sm-inline">Internal Operations Portal</span>
+                    </a>
+                    <span class="small d-none d-sm-inline" style="color: #BDBDBD;">Eustace Batchoy &bull; Internal Operations Portal</span>
                 </div>
             </header>
 
@@ -841,9 +1499,9 @@
                 @yield('content')
             </main>
 
-            <footer class="py-3 text-center border-top" style="border-color: var(--border); background: #0A0A0A; color: var(--muted); font-size: 0.8rem;">
+            <footer class="py-3 text-center border-top" style="border-color: #242424 !important; background: #0A0A0A; color: #BDBDBD; font-size: 0.8rem;">
                 <div class="container">
-                    <span>© {{ date('Y') }} MyBatchoy — Internal Inventory Management System. Authorized personnel only.</span>
+                    <span>&copy; {{ date('Y') }} Eustace Batchoy &mdash; MyBatchoy v1.0. Authorized personnel only.</span>
                 </div>
             </footer>
         </div>
@@ -965,6 +1623,114 @@
                 requestAnimationFrame(update);
             });
         }
+
+        // First-time guide persistence & modal helper
+        (function initFirstTimeGuide() {
+            const GUIDE_KEY = 'mybatchoy_guide_dismissed_v1';
+
+            function ensureRootModal(modalEl) {
+                if (modalEl && modalEl.parentElement !== document.body) {
+                    document.body.appendChild(modalEl);
+                }
+            }
+
+            function portalShellModals() {
+                document.querySelectorAll('.app-shell .modal').forEach(ensureRootModal);
+            }
+
+            portalShellModals();
+
+            document.addEventListener('DOMContentLoaded', function () {
+                portalShellModals();
+
+                const banner = document.getElementById('firstTimeGuideBanner');
+                if (banner) {
+                    try {
+                        if (localStorage.getItem(GUIDE_KEY) !== '1') {
+                            banner.classList.remove('d-none');
+                        }
+                    } catch (e) {
+                        banner.classList.remove('d-none');
+                    }
+                }
+
+                // Global double-submit protection & optional friendly confirmation dialog
+                document.querySelectorAll('form[data-safe-submit]').forEach(function (form) {
+                    form.addEventListener('submit', function (event) {
+                        if (form.dataset.submitting === 'true') {
+                            event.preventDefault();
+                            return;
+                        }
+                        if (!form.reportValidity()) {
+                            return;
+                        }
+                        const confirmMessage = form.dataset.confirmMessage || form.dataset.confirm;
+                        if (confirmMessage && form.dataset.confirmed !== 'true') {
+                            event.preventDefault();
+                            const modalEl = document.getElementById('globalConfirmModal');
+                            if (modalEl && typeof bootstrap !== 'undefined') {
+                                ensureRootModal(modalEl);
+                                document.getElementById('globalConfirmTitle').textContent = form.dataset.confirmTitle || 'Please Confirm';
+                                document.getElementById('globalConfirmBody').textContent = confirmMessage;
+                                const proceedBtn = document.getElementById('globalConfirmProceedBtn');
+                                proceedBtn.textContent = form.dataset.confirmButton || 'Yes, Confirm';
+                                proceedBtn.className = 'btn ' + (form.dataset.confirmVariant || 'btn-primary');
+                                proceedBtn.onclick = function () {
+                                    form.dataset.confirmed = 'true';
+                                    bootstrap.Modal.getInstance(modalEl)?.hide();
+                                    form.requestSubmit ? form.requestSubmit() : form.submit();
+                                };
+                                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                                return;
+                            }
+                            if (!window.confirm(confirmMessage)) {
+                                return;
+                            }
+                        }
+                        form.dataset.submitting = 'true';
+                        const submitBtn = form.querySelector('button[type="submit"]:not([data-skip-loading])');
+                        if (submitBtn) {
+                            submitBtn.disabled = true;
+                            const label = submitBtn.dataset.loadingLabel || 'Saving, please wait...';
+                            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + label;
+                        }
+                    });
+                });
+            });
+
+            window.dismissFirstTimeGuide = function (save) {
+                const banner = document.getElementById('firstTimeGuideBanner');
+                if (banner) banner.classList.add('d-none');
+                if (save) {
+                    try { localStorage.setItem(GUIDE_KEY, '1'); } catch (e) {}
+                }
+            };
+
+            window.openHelpGuideModal = function () {
+                const modalEl = document.getElementById('helpGuideModal');
+                if (modalEl && typeof bootstrap !== 'undefined') {
+                    ensureRootModal(modalEl);
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
+            };
+        })();
     </script>
+
+    <!-- Global Accessible Confirmation Modal -->
+    <div class="modal fade" id="globalConfirmModal" tabindex="-1" aria-labelledby="globalConfirmTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="background: #1B1B1B; border: 1px solid var(--border); color: var(--text);">
+                <div class="modal-header border-border">
+                    <h5 class="modal-title fw-bold" id="globalConfirmTitle">Please Confirm</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="globalConfirmBody" style="font-size: 1.02rem; line-height: 1.55;"></div>
+                <div class="modal-footer border-border">
+                    <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Go Back</button>
+                    <button type="button" class="btn btn-primary" id="globalConfirmProceedBtn">Yes, Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

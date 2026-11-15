@@ -219,13 +219,18 @@ export const InventoryScreen: React.FC = () => {
         }
       >
         <View style={styles.topRow}>
-          <Text style={styles.heading}>Inventory ({items.length})</Text>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.heading}>Manage Stock ({items.length})</Text>
+            <Text style={styles.subHeading}>
+              See current stock amounts. Tap any item to inspect history and levels.
+            </Text>
+          </View>
           {isOwner && (
             <PrimaryButton
-              title="Add Item"
+              title="+ New Item"
               icon="add-circle-outline"
               onPress={openCreateForm}
-              style={{ minHeight: 38, paddingVertical: 6 }}
+              style={{ minHeight: 40, paddingVertical: 6 }}
             />
           )}
         </View>
@@ -233,7 +238,7 @@ export const InventoryScreen: React.FC = () => {
         <SearchBar
           value={search}
           onChangeText={setSearch}
-          placeholder="Search item name or SKU..."
+          placeholder="Search item name or code..."
         />
 
         <FilterChips
@@ -272,7 +277,7 @@ export const InventoryScreen: React.FC = () => {
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={styles.itemName}>{item.name}</Text>
                   <Text style={styles.itemSub}>
-                    SKU: {item.sku} • {item.category_name}
+                    Code: {item.sku} • {item.category_name}
                   </Text>
                 </View>
                 <StatusBadge status={item.status} />
@@ -280,19 +285,19 @@ export const InventoryScreen: React.FC = () => {
 
               <View style={styles.cardMetrics}>
                 <View>
-                  <Text style={styles.metricSmallLabel}>Current Stock</Text>
+                  <Text style={styles.metricSmallLabel}>Current Qty</Text>
                   <Text style={styles.metricSmallValue}>
                     {item.current_quantity} {item.unit_short_name}
                   </Text>
                 </View>
                 <View>
-                  <Text style={styles.metricSmallLabel}>Min Level</Text>
+                  <Text style={styles.metricSmallLabel}>Min Stock</Text>
                   <Text style={styles.metricSmallValue}>
                     {item.minimum_stock_level} {item.unit_short_name}
                   </Text>
                 </View>
                 <View>
-                  <Text style={styles.metricSmallLabel}>Reorder</Text>
+                  <Text style={styles.metricSmallLabel}>Reorder Level</Text>
                   <Text style={styles.metricSmallValue}>
                     {item.reorder_level} {item.unit_short_name}
                   </Text>
@@ -318,7 +323,7 @@ export const InventoryScreen: React.FC = () => {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.sheetTitle}>{selectedItem.name}</Text>
                     <Text style={styles.itemSub}>
-                      SKU: {selectedItem.sku} • {selectedItem.category_name}
+                      Code: {selectedItem.sku} • {selectedItem.category_name}
                     </Text>
                   </View>
                   <TouchableOpacity onPress={() => setSelectedItem(null)}>
@@ -339,7 +344,7 @@ export const InventoryScreen: React.FC = () => {
                     </Text>
                   </Text>
                   <Text style={styles.detailLine}>
-                    Minimum Stock Level: {selectedItem.minimum_stock_level}{' '}
+                    Minimum Stock (Warn below): {selectedItem.minimum_stock_level}{' '}
                     {selectedItem.unit_short_name}
                   </Text>
                   <Text style={styles.detailLine}>
@@ -352,7 +357,7 @@ export const InventoryScreen: React.FC = () => {
 
                 {isOwner && (
                   <PrimaryButton
-                    title="Edit Inventory Item"
+                    title="Edit Item Details"
                     icon="create-outline"
                     onPress={() => openEditForm(selectedItem)}
                     style={{ marginVertical: 10 }}
@@ -360,7 +365,7 @@ export const InventoryScreen: React.FC = () => {
                 )}
 
                 <Text style={[styles.sheetTitle, { fontSize: 15, marginTop: 10 }]}>
-                  Recent Stock Movements
+                  Recent Stock History
                 </Text>
                 {detailLoading ? (
                   <SkeletonList count={2} height={64} />
@@ -398,36 +403,41 @@ export const InventoryScreen: React.FC = () => {
           <View style={styles.modalSheet}>
             <ScrollView keyboardShouldPersistTaps="handled">
               <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>
-                  {editingItem ? 'Edit Inventory Item' : 'Add Inventory Item'}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetTitle}>
+                    {editingItem ? 'Edit Stock Item' : 'Add New Stock Item'}
+                  </Text>
+                  <Text style={styles.itemSub}>
+                    Fill in steps 1–6 so the team can easily track this ingredient.
+                  </Text>
+                </View>
                 <TouchableOpacity onPress={() => setFormVisible(false)}>
                   <Ionicons name="close-circle" size={26} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               </View>
 
               <FormField
-                label="Item Name"
+                label="1. Item Name"
                 value={name}
                 onChangeText={setName}
-                placeholder="e.g. Fresh Miki Noodles"
+                placeholder="e.g. Pork Belly or Fresh Miki Noodles"
                 required
               />
               <FormField
-                label="SKU (leave blank to auto-generate)"
+                label="Item Code (Optional — created automatically if blank)"
                 value={sku}
                 onChangeText={setSku}
-                placeholder="e.g. MIKI-001"
+                placeholder="e.g. PORK-001"
               />
 
-              <Text style={styles.pickerLabel}>Category *</Text>
+              <Text style={styles.pickerLabel}>2. Category *</Text>
               <FilterChips
                 options={categories.map((c) => ({ key: String(c.id), label: c.name }))}
                 selected={String(categoryId)}
                 onSelect={(k) => setCategoryId(Number(k))}
               />
 
-              <Text style={styles.pickerLabel}>Measurement Unit *</Text>
+              <Text style={styles.pickerLabel}>3. Measurement Unit *</Text>
               <FilterChips
                 options={units.map((u) => ({
                   key: String(u.id),
@@ -438,29 +448,33 @@ export const InventoryScreen: React.FC = () => {
               />
 
               <FormField
-                label="Current Quantity"
+                label="4. Current Quantity on Hand"
                 value={currentQuantity}
                 onChangeText={setCurrentQuantity}
+                placeholder="e.g. 20"
                 keyboardType="decimal-pad"
                 required
               />
               <FormField
-                label="Minimum Stock Level"
+                label="5. Minimum Stock (Warn when below this number)"
                 value={minimumStockLevel}
                 onChangeText={setMinimumStockLevel}
+                placeholder="e.g. 5"
                 keyboardType="decimal-pad"
                 required
               />
               <FormField
-                label="Reorder Level"
+                label="6. Reorder Level (Suggested level to buy again)"
                 value={reorderLevel}
                 onChangeText={setReorderLevel}
+                placeholder="e.g. 10"
                 keyboardType="decimal-pad"
               />
               <FormField
-                label="Description / Notes"
+                label="Notes (Optional)"
                 value={description}
                 onChangeText={setDescription}
+                placeholder="Storage tips or pack size notes"
                 multiline
               />
 
@@ -472,7 +486,7 @@ export const InventoryScreen: React.FC = () => {
                   style={{ flex: 1, marginRight: 8 }}
                 />
                 <PrimaryButton
-                  title={editingItem ? 'Update Item' : 'Create Item'}
+                  title={editingItem ? 'Save Changes' : 'Save Item'}
                   onPress={handleSaveItem}
                   loading={submitting}
                   style={{ flex: 1 }}
@@ -505,6 +519,12 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 18,
     fontWeight: '700',
+  },
+  subHeading: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
   },
   card: {
     backgroundColor: COLORS.card,

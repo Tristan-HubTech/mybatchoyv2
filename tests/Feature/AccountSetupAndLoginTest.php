@@ -2,8 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\BusinessSetting;
+use App\Models\InventoryItem;
+use App\Models\InventoryTransaction;
+use App\Models\Purchase;
 use App\Models\Role;
+use App\Models\Supplier;
 use App\Models\User;
+use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -206,5 +212,36 @@ class AccountSetupAndLoginTest extends TestCase
 
         $this->assertStringContainsString('These credentials do not match our records.', $invalidCredentialsPage);
         $this->assertStringContainsString('These credentials do not match our records.', $inactiveAccountPage);
+    }
+
+    public function test_database_seeder_seeds_owner_three_staff_and_test_data(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(DatabaseSeeder::class);
+
+        $owner = User::where('username', 'owner')->firstOrFail();
+        $this->assertTrue($owner->is_active);
+        $this->assertTrue(Hash::check('Str0ng!Pass2024', $owner->password));
+        $this->assertSame('owner', $owner->role->name);
+
+        $staffCredentials = [
+            'staff_maria' => 'Batchoy!Staff1',
+            'staff_juan' => 'Batchoy!Staff2',
+            'staff_elena' => 'Batchoy!Staff3',
+        ];
+
+        foreach ($staffCredentials as $username => $plainPassword) {
+            $staff = User::where('username', $username)->firstOrFail();
+            $this->assertTrue($staff->is_active);
+            $this->assertSame('staff', $staff->role->name);
+            $this->assertTrue(Hash::check($plainPassword, $staff->password));
+        }
+
+        $this->assertSame(3, User::whereHas('role', fn ($q) => $q->where('name', 'staff'))->count());
+        $this->assertGreaterThanOrEqual(10, InventoryItem::count());
+        $this->assertGreaterThanOrEqual(3, Supplier::count());
+        $this->assertGreaterThanOrEqual(5, Purchase::count());
+        $this->assertGreaterThanOrEqual(10, InventoryTransaction::count());
+        $this->assertNotNull(BusinessSetting::find(1));
     }
 }

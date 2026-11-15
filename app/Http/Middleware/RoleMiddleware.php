@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Role;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +21,9 @@ class RoleMiddleware
             return redirect()->route('login');
         }
 
-        $userRole = $user->role?->name;
+        $userRole = $user->relationLoaded('role')
+            ? $user->role?->name
+            : Role::cachedNameById($user->role_id);
 
         if (!in_array($userRole, $roles, true)) {
             if ($request->expectsJson() || $request->is('api/*')) {

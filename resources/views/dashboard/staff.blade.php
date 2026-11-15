@@ -1,529 +1,648 @@
 @extends('layouts.app')
 
-@section('title', 'Staff Dashboard Overview')
+@section('title', 'Dashboard')
 
 @section('content')
-<div class="container-fluid px-0">
-    <div id="dashboardSkeletonWrapper" class="d-none">
-        @include('components.skeletons.dashboard-skeleton')
-    </div>
-    <div id="dashboardLiveContent">
-        <!-- Header: Overview, Role Identity & Controls -->
-        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-        <div>
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <span class="text-uppercase small fw-bold accent" style="letter-spacing: 0.06em;">Internal Operations</span>
-                <span class="badge badge-secondary-subtle">Staff Member</span>
-                <span class="muted small d-none d-sm-inline">• {{ $currentUser->name }}</span>
-            </div>
-            <h1 class="fw-bold mb-0 page-title">Dashboard Overview</h1>
-        </div>
+<!-- Skeleton Placeholder for Dynamic Transitions -->
+<div id="dashboardSkeletonWrapper" class="d-none">
+    @include('components.skeletons.dashboard-skeleton')
+</div>
 
-        <!-- Date Range Filter & Refresh Control -->
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <form method="GET" action="{{ route('staff.dashboard') }}" class="d-flex flex-wrap align-items-center gap-2" id="filterForm">
-                <div class="input-group input-group-sm">
-                    <label class="input-group-text bg-surface border-border text-muted" for="rangeSelect">
-                        <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
-                        </svg>
-                    </label>
-                    <select name="range" id="rangeSelect" class="form-select form-select-sm" onchange="handleRangeChange(this.value)" aria-label="Select date range filter">
+<div id="dashboardLiveContent">
+    <!-- 1. HERO WELCOME BANNER (Matches Target Design Reference IMAGE 1) -->
+    <div class="eb-hero-banner">
+        <div class="eb-hero-content">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="badge px-2 py-1" style="background: rgba(229, 57, 53, 0.2); color: #FFFFFF; border: 1px solid rgba(229, 57, 53, 0.5); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+                    Dashboard Overview
+                </span>
+                <span class="badge px-2 py-1" style="background: rgba(255, 193, 7, 0.16); color: #FFC107; border: 1px solid rgba(255, 193, 7, 0.4); font-size: 0.72rem; font-weight: 700;">
+                    Staff Member
+                </span>
+                <span class="small" style="color: #BDBDBD; font-size: 0.78rem;">
+                    &bull; Period: <strong class="text-white">{{ $rangeLabel }}</strong> ({{ \Carbon\Carbon::parse($startDate)->format('M d, Y') }} &ndash; {{ \Carbon\Carbon::parse($endDate)->format('M d, Y') }})
+                </span>
+            </div>
+
+            <h1 class="eb-hero-title">Welcome back, {{ $currentUser->name }}!</h1>
+            <p class="eb-hero-subtitle">Here's what's happening with your business today.</p>
+
+            <!-- Integrated Date Filter & Refresh Bar -->
+            <form action="{{ route('staff.dashboard') }}" method="GET" id="filterForm" class="eb-hero-controls">
+                <div class="d-flex align-items-center gap-2">
+                    <label for="rangeSelector" class="small fw-semibold mb-0" style="color: #BDBDBD; font-size: 0.78rem;">Date Range:</label>
+                    <select name="range" id="rangeSelector" class="form-select form-select-sm" style="width: auto; min-width: 150px; background-color: #111111; color: #FFFFFF; border-color: #333333; font-size: 0.82rem;">
                         <option value="today" {{ $rangeKey === 'today' ? 'selected' : '' }}>Today</option>
                         <option value="7days" {{ $rangeKey === '7days' ? 'selected' : '' }}>Last 7 Days</option>
                         <option value="30days" {{ $rangeKey === '30days' ? 'selected' : '' }}>Last 30 Days</option>
                         <option value="this_month" {{ $rangeKey === 'this_month' ? 'selected' : '' }}>This Month</option>
-                        <option value="custom" {{ $rangeKey === 'custom' ? 'selected' : '' }}>Custom Range</option>
+                        <option value="custom" {{ $rangeKey === 'custom' ? 'selected' : '' }}>Custom Range...</option>
                     </select>
                 </div>
 
-                <div id="customDatesWrapper" class="d-flex align-items-center gap-2 {{ $rangeKey === 'custom' ? '' : 'd-none' }}">
-                    <input type="date" name="from" value="{{ request('from', $startDate->toDateString()) }}" class="form-control form-control-sm" aria-label="Start Date">
-                    <span class="muted small">to</span>
-                    <input type="date" name="to" value="{{ request('to', $endDate->toDateString()) }}" class="form-control form-control-sm" aria-label="End Date">
-                    <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+                <div id="customDatesWrapper" class="{{ $rangeKey === 'custom' ? 'd-flex' : 'd-none' }} flex-wrap align-items-center gap-2">
+                    <input type="date" name="from" class="form-control form-control-sm" style="width: 144px;" value="{{ \Carbon\Carbon::parse($startDate)->format('Y-m-d') }}" max="{{ date('Y-m-d') }}" aria-label="Start date">
+                    <span class="small" style="color: #BDBDBD;">to</span>
+                    <input type="date" name="to" class="form-control form-control-sm" style="width: 144px;" value="{{ \Carbon\Carbon::parse($endDate)->format('Y-m-d') }}" max="{{ date('Y-m-d') }}" aria-label="End date">
+                    <button type="submit" class="btn btn-sm btn-primary px-3">Apply</button>
                 </div>
+
+                <a href="{{ route('staff.dashboard', ['range' => $rangeKey, 'from' => \Carbon\Carbon::parse($startDate)->format('Y-m-d'), 'to' => \Carbon\Carbon::parse($endDate)->format('Y-m-d')]) }}"
+                   class="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1"
+                   id="refreshMetricsBtn"
+                   title="Reload the latest stock numbers">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFC107" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    <span>Refresh</span>
+                </a>
             </form>
+        </div>
 
-            <a href="{{ route('staff.dashboard', array_filter(['range' => $rangeKey, 'from' => request('from'), 'to' => request('to')])) }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1" title="Refresh Dashboard Data">
-                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+        <div class="eb-hero-art" aria-hidden="true">
+            <img src="{{ asset('images/eustace-bowl-hero.jpg') }}" alt="Eustace Batchoy Bowl">
+        </div>
+    </div>
+
+    <!-- 2. SUMMARY KPI CARDS (5 Operational Cards Matching Target Reference) -->
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-5 g-3 mb-4">
+        <!-- Card 1: Total Items -->
+        <div class="col">
+            <a href="{{ route('staff.inventory.index') }}" class="eb-kpi-card" title="View all active inventory items">
+                <div class="eb-kpi-circle kpi-red">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                </div>
+                <div class="eb-kpi-body">
+                    <div class="eb-kpi-label">Total Items</div>
+                    <div class="eb-kpi-value" data-counter="{{ $totalItemsCount }}">{{ number_format($totalItemsCount) }}</div>
+                    <div class="eb-kpi-meta meta-up">
+                        <span>&#8593; Active catalog</span>
+                    </div>
+                </div>
+                <svg class="eb-kpi-spark" viewBox="0 0 70 32" fill="none" aria-hidden="true">
+                    <path d="M2 26 C14 24, 18 14, 28 18 C38 22, 46 8, 56 12 C62 14, 65 6, 68 4" stroke="#E53935" stroke-width="2.2" stroke-linecap="round"/>
+                    <path d="M2 26 C14 24, 18 14, 28 18 C38 22, 46 8, 56 12 C62 14, 65 6, 68 4 L68 32 L2 32 Z" fill="rgba(229, 57, 53, 0.16)"/>
                 </svg>
-                <span>Refresh</span>
+            </a>
+        </div>
+
+        <!-- Card 2: Items In Stock -->
+        <div class="col">
+            <a href="{{ route('staff.inventory.index', ['status' => 'in_stock']) }}" class="eb-kpi-card" title="View healthy stock items">
+                <div class="eb-kpi-circle kpi-green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <div class="eb-kpi-body">
+                    <div class="eb-kpi-label">Items In Stock</div>
+                    <div class="eb-kpi-value" data-counter="{{ $inStockCount }}">{{ number_format($inStockCount) }}</div>
+                    <div class="eb-kpi-meta meta-up">
+                        <span>&#10003; Ready for kitchen</span>
+                    </div>
+                </div>
+                <svg class="eb-kpi-spark" viewBox="0 0 70 32" fill="none" aria-hidden="true">
+                    <path d="M2 24 C14 20, 22 22, 32 14 C42 8, 50 16, 68 5" stroke="#4CAF50" stroke-width="2.2" stroke-linecap="round"/>
+                    <path d="M2 24 C14 20, 22 22, 32 14 C42 8, 50 16, 68 5 L68 32 L2 32 Z" fill="rgba(76, 175, 80, 0.16)"/>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Card 3: Stock Movements -->
+        <div class="col">
+            <a href="{{ route('staff.transactions.index') }}" class="eb-kpi-card" title="View stock transactions in {{ $rangeLabel }}">
+                <div class="eb-kpi-circle kpi-green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                </div>
+                <div class="eb-kpi-body">
+                    <div class="eb-kpi-label">Movements</div>
+                    <div class="eb-kpi-value" data-counter="{{ $periodMovementsCount }}">{{ number_format($periodMovementsCount) }}</div>
+                    <div class="eb-kpi-meta meta-up">
+                        <span>&#8593; {{ $rangeLabel }}</span>
+                    </div>
+                </div>
+                <svg class="eb-kpi-spark" viewBox="0 0 70 32" fill="none" aria-hidden="true">
+                    <path d="M2 26 C16 25, 22 15, 34 17 C46 19, 54 9, 68 6" stroke="#FFC107" stroke-width="2.2" stroke-linecap="round"/>
+                    <path d="M2 26 C16 25, 22 15, 34 17 C46 19, 54 9, 68 6 L68 32 L2 32 Z" fill="rgba(255, 193, 7, 0.16)"/>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Card 4: Low Stock -->
+        <div class="col">
+            <a href="{{ route('staff.inventory.index', ['status' => 'low_stock']) }}" class="eb-kpi-card" title="View low stock items needing reorder">
+                <div class="eb-kpi-circle kpi-yellow">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+                <div class="eb-kpi-body">
+                    <div class="eb-kpi-label">Low Stock</div>
+                    <div class="eb-kpi-value" data-counter="{{ $lowStockCount }}">{{ number_format($lowStockCount) }}</div>
+                    <div class="eb-kpi-meta {{ $lowStockCount > 0 ? 'meta-warn' : 'meta-up' }}">
+                        <span>{{ $lowStockCount > 0 ? 'View Details →' : 'None low' }}</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Card 5: Out of Stock -->
+        <div class="col">
+            <a href="{{ route('staff.inventory.index', ['status' => 'out_of_stock']) }}" class="eb-kpi-card" title="View depleted items">
+                <div class="eb-kpi-circle kpi-red">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
+                <div class="eb-kpi-body">
+                    <div class="eb-kpi-label">Out of Stock</div>
+                    <div class="eb-kpi-value" data-counter="{{ $outOfStockCount }}">{{ number_format($outOfStockCount) }}</div>
+                    <div class="eb-kpi-meta {{ $outOfStockCount > 0 ? 'meta-danger' : 'meta-up' }}">
+                        <span>{{ $outOfStockCount > 0 ? 'View Details →' : 'Zero depleted' }}</span>
+                    </div>
+                </div>
             </a>
         </div>
     </div>
 
-    <!-- Summary Cards (5 Metrics for Staff) -->
+    <!-- 3. ATTENTION CALLOUT & QUICK ACTIONS STRIP -->
+    <div class="eb-panel-card mb-4">
+        <div class="eb-panel-body py-3">
+            <div class="row align-items-center g-3">
+                <div class="col-xl-5">
+                    <div class="d-flex align-items-center gap-3">
+                        @if($outOfStockCount > 0)
+                            <div class="eb-kpi-circle kpi-red" style="width: 42px; height: 42px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            </div>
+                        @elseif($lowStockCount > 0)
+                            <div class="eb-kpi-circle kpi-yellow" style="width: 42px; height: 42px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            </div>
+                        @else
+                            <div class="eb-kpi-circle kpi-green" style="width: 42px; height: 42px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            </div>
+                        @endif
+                        <div>
+                            <div class="fw-bold text-white" style="font-size: 0.95rem;">What Needs Attention Today?</div>
+                            <div class="small" style="color: #BDBDBD; font-size: 0.82rem;">
+                                @if($outOfStockCount > 0 && $lowStockCount > 0)
+                                    <strong style="color: #E53935;">{{ $outOfStockCount }} {{ Str::plural('item', $outOfStockCount) }} out of stock</strong> and <strong style="color: #FFC107;">{{ $lowStockCount }} running low</strong>.
+                                    <a href="#urgentAlertsSection" class="ms-1 fw-bold" style="color: #FFC107; text-decoration: none;">Review alerts &darr;</a>
+                                @elseif($outOfStockCount > 0)
+                                    <strong style="color: #E53935;">{{ $outOfStockCount }} {{ Str::plural('item', $outOfStockCount) }} completely out of stock.</strong>
+                                    <a href="#urgentAlertsSection" class="ms-1 fw-bold" style="color: #E53935; text-decoration: none;">Restock now &darr;</a>
+                                @elseif($lowStockCount > 0)
+                                    <strong style="color: #FFC107;">{{ $lowStockCount }} {{ Str::plural('item', $lowStockCount) }} running low</strong> and below reorder level.
+                                    <a href="#urgentAlertsSection" class="ms-1 fw-bold" style="color: #FFC107; text-decoration: none;">View items &darr;</a>
+                                @else
+                                    <span style="color: #4CAF50; font-weight: 600;">All {{ $totalItemsCount }} active items have healthy stock levels.</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-7">
+                    <div class="d-flex flex-wrap gap-2 justify-content-xl-end">
+                        <a href="{{ route('staff.transactions.stockIn') }}" class="eb-quick-btn qb-primary">
+                            <span style="color: #FFFFFF; font-weight: 800;">+</span>
+                            <span>Add Stock</span>
+                        </a>
+                        <a href="{{ route('staff.transactions.stockOut') }}" class="eb-quick-btn">
+                            <span style="color: #E53935; font-weight: 800;">&minus;</span>
+                            <span>Remove Stock</span>
+                        </a>
+                        <a href="{{ route('staff.transactions.adjustment') }}" class="eb-quick-btn">
+                            <span style="color: #FFC107;">&#9998;</span>
+                            <span>Correct Stock</span>
+                        </a>
+                        <a href="{{ route('staff.transactions.spoilage') }}" class="eb-quick-btn">
+                            <span style="color: #E53935;">&#9888;</span>
+                            <span>Record Spoilage</span>
+                        </a>
+                        <a href="{{ route('staff.inventory.index') }}" class="eb-quick-btn">
+                            <span style="color: #BDBDBD;">&#9776;</span>
+                            <span>Manage Inventory</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. MAIN ROW 1: INVENTORY OVERVIEW DONUT (LEFT) + RECENT TRANSACTIONS TABLE (RIGHT) -->
     <div class="row g-3 mb-4">
-        <!-- 1. Total Catalog Items -->
-        <div class="col-12 col-sm-6 col-lg-4 col-xl">
-            <div class="card card-hover-subtle p-3 h-100">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <small class="muted text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Total Items</small>
-                    <div class="rounded-3 p-2" style="background: rgba(111, 168, 255, 0.1); border: 1px solid rgba(111, 168, 255, 0.2);">
-                        <svg width="16" height="16" fill="var(--primary-soft)" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l6.229 2.492a.5.5 0 0 1 .314.464v8.572a.5.5 0 0 1-.314.464l-6.229 2.492a1.5 1.5 0 0 1-1.114 0L1.214 12.18a.5.5 0 0 1-.314-.464V3.14a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                        </svg>
+        <!-- Left: Inventory Overview / Stock Health Status (Matches IMAGE 1 Donut + Right Legend) -->
+        <div class="col-lg-5">
+            <div class="eb-panel-card h-100">
+                <div class="eb-panel-header">
+                    <div class="eb-panel-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E53935" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                        <span>Inventory Overview</span>
+                        <span class="visually-hidden">Stock Health Status</span>
                     </div>
+                    <span class="badge" style="background: #111111; color: #BDBDBD; border: 1px solid #333333; font-size: 0.75rem; font-weight: 600;">
+                        {{ $rangeLabel }}
+                    </span>
                 </div>
-                <div class="fs-3 fw-bold mb-1" data-counter="{{ $totalItemsCount }}">{{ number_format($totalItemsCount) }}</div>
-                <small class="muted">Active tracked goods</small>
+                <div class="eb-panel-body d-flex flex-column justify-content-center">
+                    @if($totalItemsCount === 0)
+                        <div class="text-center py-4">
+                            <div class="fw-bold text-white mb-1">No Active Inventory Items</div>
+                            <p class="small mb-0" style="color: #BDBDBD;">Ask the Owner/Admin to add batchoy ingredients and supplies to start tracking.</p>
+                        </div>
+                    @else
+                        <div class="row align-items-center g-3">
+                            <div class="col-sm-6">
+                                <div class="eb-donut-stage">
+                                    <canvas id="inventoryStatusChart"></canvas>
+                                    <div class="eb-donut-center">
+                                        <div class="donut-num">{{ number_format($totalItemsCount) }}</div>
+                                        <div class="donut-lbl">Items</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <ul class="eb-legend-list">
+                                    <li>
+                                        <span class="eb-legend-label">
+                                            <span class="eb-legend-dot" style="background: #4CAF50;"></span>
+                                            <span>In Stock</span>
+                                        </span>
+                                        <span class="eb-legend-val">{{ number_format($inStockCount) }}</span>
+                                    </li>
+                                    <li>
+                                        <span class="eb-legend-label">
+                                            <span class="eb-legend-dot" style="background: #FFC107;"></span>
+                                            <span>Low Stock</span>
+                                        </span>
+                                        <span class="eb-legend-val">{{ number_format($lowStockCount) }}</span>
+                                    </li>
+                                    <li>
+                                        <span class="eb-legend-label">
+                                            <span class="eb-legend-dot" style="background: #E53935;"></span>
+                                            <span>Out of Stock</span>
+                                        </span>
+                                        <span class="eb-legend-val">{{ number_format($outOfStockCount) }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    @endif
+                </div>
             </div>
         </div>
 
-        <!-- 2. Items in Stock -->
-        <div class="col-12 col-sm-6 col-lg-4 col-xl">
-            <div class="card card-hover-subtle p-3 h-100">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <small class="muted text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Items In Stock</small>
-                    <div class="rounded-3 p-2" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2);">
-                        <svg width="16" height="16" fill="var(--success)" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                        </svg>
+        <!-- Right: Recent Transactions Table (Matches IMAGE 1 Pill Badges & Columns) -->
+        <div class="col-lg-7">
+            <div class="eb-panel-card h-100">
+                <div class="eb-panel-header">
+                    <div class="eb-panel-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#FFC107" stroke="#FFC107" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <span>Recent Transactions</span>
                     </div>
+                    <a href="{{ route('staff.transactions.index') }}" class="eb-panel-action">View All &rarr;</a>
                 </div>
-                <div class="fs-3 fw-bold mb-1 text-success" data-counter="{{ $inStockCount }}">{{ number_format($inStockCount) }}</div>
-                <small class="muted">Above minimum threshold</small>
-            </div>
-        </div>
-
-        <!-- 3. Low Stock Items -->
-        <div class="col-12 col-sm-6 col-lg-4 col-xl">
-            <div class="card card-hover-subtle p-3 h-100">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <small class="muted text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Low Stock</small>
-                    <div class="rounded-3 p-2" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2);">
-                        <svg width="16" height="16" fill="var(--warning)" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                        </svg>
-                    </div>
-                </div>
-                <div class="fs-3 fw-bold mb-1 text-warning" data-counter="{{ $lowStockCount }}">{{ number_format($lowStockCount) }}</div>
-                <small class="muted">{{ $lowStockCount > 0 ? 'Approaching depletion' : 'Optimal buffer levels' }}</small>
-            </div>
-        </div>
-
-        <!-- 4. Out of Stock -->
-        <div class="col-12 col-sm-6 col-lg-4 col-xl">
-            <div class="card card-hover-subtle p-3 h-100">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <small class="muted text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Out of Stock</small>
-                    <div class="rounded-3 p-2" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);">
-                        <svg width="16" height="16" fill="var(--danger)" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                        </svg>
-                    </div>
-                </div>
-                <div class="fs-3 fw-bold mb-1 text-danger" data-counter="{{ $outOfStockCount }}">{{ number_format($outOfStockCount) }}</div>
-                <small class="muted">{{ $outOfStockCount > 0 ? 'Requires stock-in' : 'Zero items depleted' }}</small>
-            </div>
-        </div>
-
-        <!-- 5. Period Movements -->
-        <div class="col-12 col-sm-6 col-lg-4 col-xl">
-            <div class="card card-hover-subtle p-3 h-100">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <small class="muted text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Movements ({{ $rangeKey === 'today' ? 'Today' : 'Period' }})</small>
-                    <div class="rounded-3 p-2" style="background: rgba(31, 106, 225, 0.1); border: 1px solid rgba(31, 106, 225, 0.2);">
-                        <svg width="16" height="16" fill="var(--primary-soft)" viewBox="0 0 16 16" aria-hidden="true">
-                            <path fill-rule="evenodd" d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5zm14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5z"/>
-                        </svg>
-                    </div>
-                </div>
-                <div class="fs-3 fw-bold mb-1 accent" data-counter="{{ $periodMovementsCount }}">{{ number_format($periodMovementsCount) }}</div>
-                <small class="muted">Stock transactions recorded</small>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Actions Bar for Staff -->
-    <div class="card p-3 mb-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <span class="small fw-semibold text-uppercase muted" style="letter-spacing: 0.05em;">Staff Quick Actions</span>
-            <div class="d-flex flex-wrap gap-2">
-                <a href="{{ route('staff.inventory.index') }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
-                    <span>View Inventory</span>
-                </a>
-                <a href="{{ route('staff.transactions.stockIn') }}" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1">
-                    <span>+ Record Stock In</span>
-                </a>
-                <a href="{{ route('staff.transactions.stockOut') }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
-                    <span>− Record Stock Out</span>
-                </a>
-                <a href="{{ route('staff.transactions.adjustment') }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
-                    <span>Adjust Stock</span>
-                </a>
-                <a href="{{ route('staff.transactions.spoilage') }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
-                    <span>Record Spoilage</span>
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Charts Row: Stock Movements & Inventory Status Breakdown -->
-    <div class="row g-4 mb-4">
-        <!-- Stock Movements Chart -->
-        <div class="col-lg-8">
-            <div class="card p-4 h-100">
-                <div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
-                    <div>
-                        <h5 class="fw-bold mb-1">Stock Movement Trends</h5>
-                        <p class="muted small mb-0">Stock In (replenished) vs. Stock Out (kitchen cooking dispatch) for {{ $rangeLabel }}</p>
-                    </div>
-                    <span class="badge badge-secondary-subtle">Units / Quantity</span>
-                </div>
-
-                @if($hasStockMovement)
-                    <div class="position-relative" style="min-height: 270px; height: 270px;">
-                        <canvas id="stockMovementChart" aria-label="Stock movement line chart comparing Stock In and Stock Out" role="img"></canvas>
-                    </div>
-                @else
-                    <div class="d-flex flex-column align-items-center justify-content-center p-5 rounded-3 border border-dashed border-border" style="min-height: 270px;">
-                        <svg width="32" height="32" fill="var(--muted)" viewBox="0 0 16 16" class="mb-2" aria-hidden="true">
-                            <path d="M0 0h1v15h15v1H0V0zm10 3.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4.707l-4.146 4.147a.5.5 0 0 1-.708 0L7 6.707l-3.646 3.647a.5.5 0 0 1-.708-.708l4-4a.5.5 0 0 1 .708 0L9 7.293l3.646-3.647H10.5a.5.5 0 0 1-.5-.5z"/>
-                        </svg>
-                        <p class="muted mb-1 fw-semibold">No Stock Movements in {{ $rangeLabel }}</p>
-                        <small class="muted">Recorded transactions in this timeframe will automatically render here.</small>
-                    </div>
-                @endif
-
-                <details class="mt-3">
-                    <summary class="small muted cursor-pointer">View accessible movement data table</summary>
-                    <div class="table-responsive mt-2">
-                        <table class="table table-sm table-striped mb-0 small">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th class="text-end">Stock In</th>
-                                    <th class="text-end">Stock Out</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($chartLabels as $index => $label)
+                <div class="eb-panel-body p-0">
+                    @if($recentTransactions->isEmpty())
+                        <div class="text-center py-5 px-3">
+                            <div class="fw-bold text-white mb-1">No Stock Transactions Yet</div>
+                            <p class="small mb-3" style="color: #BDBDBD;">Record deliveries, kitchen usage, or stock counts to see recent activity here.</p>
+                            <a href="{{ route('staff.transactions.stockIn') }}" class="btn btn-sm btn-primary">+ Add Stock</a>
+                        </div>
+                    @else
+                        <div class="table-responsive">
+                            <table class="table eb-table table-hover align-middle mb-0">
+                                <thead>
                                     <tr>
-                                        <td>{{ $label }}</td>
-                                        <td class="text-end text-success">{{ $stockInData[$index] ?? 0 }}</td>
-                                        <td class="text-end text-primary-soft">{{ $stockOutData[$index] ?? 0 }}</td>
+                                        <th class="ps-3">Type</th>
+                                        <th>Item</th>
+                                        <th>Quantity</th>
+                                        <th>Date</th>
+                                        <th class="pe-3">Performed By</th>
                                     </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </details>
-            </div>
-        </div>
-
-        <!-- Inventory Status Breakdown Chart -->
-        <div class="col-lg-4">
-            <div class="card p-4 h-100">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                    <div>
-                        <h5 class="fw-bold mb-1">Stock Health Status</h5>
-                        <p class="muted small mb-0">Current ingredient availability distribution</p>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach($recentTransactions as $tx)
+                                        @php
+                                            $pillVariant = match($tx->transaction_type) {
+                                                'stock_in' => 'tx-in',
+                                                'stock_out' => 'tx-out',
+                                                'adjustment' => 'tx-adj',
+                                                'spoilage' => 'tx-spoil',
+                                                default => 'tx-out',
+                                            };
+                                            $pillLabel = match($tx->transaction_type) {
+                                                'stock_in' => 'Stock In',
+                                                'stock_out' => 'Stock Out',
+                                                'adjustment' => 'Adjustment',
+                                                'spoilage' => 'Spoilage',
+                                                default => ucfirst($tx->transaction_type),
+                                            };
+                                            $isPositive = $tx->transaction_type === 'stock_in'
+                                                || ($tx->transaction_type === 'adjustment' && (float) $tx->updated_quantity >= (float) $tx->previous_quantity);
+                                            $qtyColor = $tx->transaction_type === 'stock_in'
+                                                ? '#4CAF50'
+                                                : ($tx->transaction_type === 'adjustment' ? '#FFC107' : '#E53935');
+                                            $unitAbbr = $tx->inventoryItem?->unit?->short_name ?? '';
+                                            $txDate = $tx->transaction_date ?? $tx->created_at;
+                                        @endphp
+                                        <tr>
+                                            <td class="ps-3">
+                                                <x-status-badge :variant="$pillVariant" :label="$pillLabel" />
+                                            </td>
+                                            <td class="fw-semibold text-white">
+                                                <div>{{ $tx->inventoryItem->name ?? 'Deleted Item' }}</div>
+                                                @if(!empty($tx->reason))
+                                                    <div class="small" style="color: #BDBDBD; font-size: 0.74rem; font-weight: 400;">{{ $tx->reason }}</div>
+                                                @endif
+                                            </td>
+                                            <td class="fw-bold" style="color: {{ $qtyColor }};">
+                                                {{ $isPositive ? '+' : '-' }}{{ number_format((float) $tx->quantity, 2) }}{{ $unitAbbr ? ' ' . $unitAbbr : '' }}
+                                            </td>
+                                            <td class="small" style="color: #BDBDBD;">
+                                                {{ $txDate ? $txDate->format('M d, Y H:i') : '—' }}
+                                            </td>
+                                            <td class="pe-3 small text-white">
+                                                {{ $tx->user->name ?? 'System' }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
-
-                @if($totalItemsCount > 0)
-                    <div class="position-relative d-flex align-items-center justify-content-center" style="min-height: 220px; height: 220px;">
-                        <canvas id="inventoryStatusChart" aria-label="Inventory status doughnut chart showing in-stock, low-stock, and out-of-stock proportions" role="img"></canvas>
-                    </div>
-                    <div class="mt-3 pt-3 border-top border-border">
-                        <div class="d-flex justify-content-between align-items-center small py-1">
-                            <span class="d-flex align-items-center gap-2"><span class="badge-dot" style="width:10px;height:10px;border-radius:50%;background:#22C55E;display:inline-block;"></span>In Stock (Healthy)</span>
-                            <span class="fw-bold text-success">{{ $inStockCount }} items ({{ $totalItemsCount > 0 ? round(($inStockCount / $totalItemsCount) * 100) : 0 }}%)</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center small py-1">
-                            <span class="d-flex align-items-center gap-2"><span class="badge-dot" style="width:10px;height:10px;border-radius:50%;background:#F59E0B;display:inline-block;"></span>Low Stock (Warning)</span>
-                            <span class="fw-bold text-warning">{{ $lowStockCount }} items</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center small py-1">
-                            <span class="d-flex align-items-center gap-2"><span class="badge-dot" style="width:10px;height:10px;border-radius:50%;background:#EF4444;display:inline-block;"></span>Out of Stock (Depleted)</span>
-                            <span class="fw-bold text-danger">{{ $outOfStockCount }} items</span>
-                        </div>
-                    </div>
-                @else
-                    <div class="d-flex flex-column align-items-center justify-content-center p-4 text-center" style="min-height: 220px;">
-                        <p class="muted mb-0">No inventory items catalogued yet.</p>
-                    </div>
-                @endif
             </div>
         </div>
     </div>
 
-    <!-- Inventory Alerts (Sorted by Urgency) -->
-    <div class="card p-0 overflow-hidden mb-4">
-        <div class="p-3 border-bottom border-border d-flex justify-content-between align-items-center">
-            <div>
-                <h5 class="fw-bold mb-0">Inventory Stock Alerts</h5>
-                <small class="muted">Items requiring kitchen attention (sorted by urgency)</small>
+    <!-- 5. MAIN ROW 2: STOCK MOVEMENT TRENDS (LEFT) + URGENT STOCK ALERTS (RIGHT) -->
+    <div class="row g-3">
+        <!-- Left: Stock Movement Trends -->
+        <div class="col-lg-6">
+            <div class="eb-panel-card h-100">
+                <div class="eb-panel-header">
+                    <div class="eb-panel-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        <span>Stock Movement Trends</span>
+                    </div>
+                    <span class="small" style="color: #BDBDBD; font-size: 0.76rem;">Add Stock vs Remove Stock</span>
+                </div>
+                <div class="eb-panel-body">
+                    @if(!$hasStockMovement)
+                        <div class="text-center py-4 px-3" style="background: #141414; border: 1px dashed #333333; border-radius: 10px;">
+                            <div class="fw-bold text-white mb-1" style="font-size: 0.9rem;">No Stock Movements in {{ $rangeLabel }}</div>
+                            <p class="small mb-3" style="color: #BDBDBD; font-size: 0.78rem;">No stock additions or removals were recorded during this period.</p>
+                            <div class="d-flex justify-content-center gap-2">
+                                <a href="{{ route('staff.transactions.stockIn') }}" class="btn btn-sm btn-primary">+ Add Stock</a>
+                                <a href="{{ route('staff.transactions.stockOut') }}" class="btn btn-sm btn-outline-light">&minus; Remove Stock</a>
+                            </div>
+                        </div>
+                    @else
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="stockMovementChart"></canvas>
+                        </div>
+                    @endif
+                </div>
             </div>
-            <a href="{{ route('staff.inventory.index') }}" class="btn btn-sm btn-outline-primary">
-                View Full Inventory ({{ $totalItemsCount }}) →
-            </a>
         </div>
 
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle">
-                <thead>
-                    <tr>
-                        <th>Item Details</th>
-                        <th>Category</th>
-                        <th class="text-end">Current Stock</th>
-                        <th class="text-end">Min. Threshold</th>
-                        <th class="text-center">Status</th>
-                        <th class="text-end">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($urgentItems as $urgent)
-                        <tr>
-                            <td>
-                                <strong class="d-block">{{ $urgent->name }}</strong>
-                                <span class="font-monospace small muted">{{ $urgent->sku }}</span>
-                            </td>
-                            <td><span class="badge badge-secondary-subtle">{{ $urgent->category?->name ?? 'General' }}</span></td>
-                            <td class="text-end">
-                                <span class="fw-bold {{ $urgent->current_quantity <= 0 ? 'text-danger' : 'text-warning' }}">
-                                    {{ number_format($urgent->current_quantity, 2) }} {{ $urgent->unit?->short_name }}
-                                </span>
-                            </td>
-                            <td class="text-end muted">
-                                {{ number_format($urgent->minimum_stock_level, 2) }} {{ $urgent->unit?->short_name }}
-                            </td>
-                            <td class="text-center">
-                                @if($urgent->current_quantity <= 0)
-                                    <span class="badge badge-danger-subtle">Out of Stock</span>
-                                @else
-                                    <span class="badge badge-warning-subtle">Low Stock</span>
-                                @endif
-                            </td>
-                            <td class="text-end">
-                                <a href="{{ route('staff.transactions.stockIn') }}" class="btn btn-sm btn-primary py-1 px-2" title="Record Stock In">
-                                    + Stock In
-                                </a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="text-center py-4 muted">
-                                <svg width="24" height="24" fill="var(--success)" viewBox="0 0 16 16" class="mb-2 d-block mx-auto" aria-hidden="true">
-                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                                </svg>
-                                <strong>All items meet or exceed required minimum stock levels.</strong>
-                                <div class="small muted mt-1">No items currently requiring restock alerts.</div>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+        <!-- Right: Urgent Stock Alerts Table -->
+        <div class="col-lg-6" id="urgentAlertsSection">
+            <div class="eb-panel-card h-100">
+                <div class="eb-panel-header">
+                    <div class="eb-panel-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E53935" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span>Stock Alerts &mdash; Items Needing Restock</span>
+                    </div>
+                    <a href="{{ route('staff.inventory.index') }}" class="eb-panel-action">Full Inventory &rarr;</a>
+                </div>
+                <div class="eb-panel-body p-0">
+                    @if($urgentItems->isEmpty())
+                        <div class="text-center py-5 px-3">
+                            <div class="fw-bold mb-1" style="color: #4CAF50;">All Inventory Levels Are Healthy</div>
+                            <p class="small mb-0" style="color: #BDBDBD;">No items are currently out of stock or below their reorder level.</p>
+                        </div>
+                    @else
+                        <div class="table-responsive">
+                            <table class="table eb-table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="ps-3">Item Name</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Current Stock</th>
+                                        <th class="text-end pe-3">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($urgentItems as $item)
+                                        @php
+                                            $isOut = $item->isOutOfStock();
+                                            $unitName = $item->unit?->short_name ?? '';
+                                        @endphp
+                                        <tr>
+                                            <td class="ps-3">
+                                                <div class="fw-bold text-white">{{ $item->name }}</div>
+                                                <div class="small" style="color: #BDBDBD; font-size: 0.74rem;">{{ $item->category->name ?? 'Uncategorized' }}</div>
+                                            </td>
+                                            <td>
+                                                @if($isOut)
+                                                    <x-status-badge variant="tx-out" label="Out of Stock" />
+                                                @else
+                                                    <x-status-badge variant="tx-adj" label="Low Stock" />
+                                                @endif
+                                            </td>
+                                            <td class="text-end fw-bold" style="color: {{ $isOut ? '#E53935' : '#FFC107' }};">
+                                                {{ number_format((float) $item->current_quantity, 2) }}
+                                                <span class="small fw-normal" style="color: #BDBDBD;">{{ $unitName }}</span>
+                                            </td>
+                                            <td class="text-end pe-3">
+                                                <a href="{{ route('staff.transactions.stockIn', ['item' => $item->id]) }}"
+                                                   class="btn btn-sm btn-primary py-1 px-2"
+                                                   style="font-size: 0.74rem; font-weight: 700;">
+                                                    + Add Stock
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
-
-    <!-- Recent Transactions Activity -->
-    <div class="card p-0 overflow-hidden mb-4">
-        <div class="p-3 border-bottom border-border d-flex justify-content-between align-items-center">
-            <div>
-                <h5 class="fw-bold mb-0">Recent Stock Transactions</h5>
-                <small class="muted">Latest logged receipts, disbursements, and kitchen usage</small>
-            </div>
-            <a href="{{ route('staff.transactions.index') }}" class="small accent">All Transactions →</a>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mb-0 align-middle small">
-                <thead>
-                    <tr>
-                        <th>Date/Time</th>
-                        <th>Item</th>
-                        <th>Type</th>
-                        <th class="text-end">Qty</th>
-                        <th>Change</th>
-                        <th>Reason</th>
-                        <th>Logged By</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($recentTransactions as $tx)
-                        <tr>
-                            <td>
-                                <span class="d-block">{{ $tx->transaction_date ? $tx->transaction_date->format('M d, Y') : '-' }}</span>
-                                <span class="muted small">{{ $tx->transaction_date ? $tx->transaction_date->format('H:i') : '' }}</span>
-                            </td>
-                            <td>
-                                <strong>{{ $tx->inventoryItem?->name ?? 'Item' }}</strong>
-                                <span class="d-block muted font-monospace small">{{ $tx->inventoryItem?->sku ?? '' }}</span>
-                            </td>
-                            <td>
-                                @if($tx->transaction_type === 'stock_in')
-                                    <span class="badge badge-success-subtle">Stock In</span>
-                                @elseif($tx->transaction_type === 'stock_out')
-                                    <span class="badge badge-primary-subtle">Stock Out</span>
-                                @elseif($tx->transaction_type === 'spoilage')
-                                    <span class="badge badge-danger-subtle">Spoilage</span>
-                                @else
-                                    <span class="badge badge-secondary-subtle">{{ ucfirst($tx->transaction_type) }}</span>
-                                @endif
-                            </td>
-                            <td class="text-end fw-semibold">
-                                @if($tx->transaction_type === 'stock_in')
-                                    <span class="text-success">+{{ $tx->quantity }}</span>
-                                @elseif($tx->transaction_type === 'stock_out' || $tx->transaction_type === 'spoilage')
-                                    <span class="text-danger">-{{ $tx->quantity }}</span>
-                                @else
-                                    <span>{{ $tx->quantity }}</span>
-                                @endif
-                            </td>
-                            <td class="muted font-monospace small">
-                                {{ number_format($tx->previous_quantity, 1) }} → {{ number_format($tx->updated_quantity, 1) }}
-                            </td>
-                            <td>
-                                <span class="muted">{{ $tx->reason ?? '—' }}</span>
-                            </td>
-                            <td>
-                                <span class="muted">{{ $tx->user?->name ?? 'System' }}</span>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="text-center py-4 muted">No stock transactions recorded yet.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>{{-- Close #dashboardLiveContent --}}
 </div>
 
-<!-- Chart.js Integration -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Chart.js Local Bundle -->
+<script src="{{ asset('vendor/chartjs/chart.umd.js') }}"></script>
+
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Date Range Selector Auto-Submit
+    const rangeSelector = document.getElementById('rangeSelector');
+    const customWrapper = document.getElementById('customDatesWrapper');
+    const filterForm = document.getElementById('filterForm');
+    const skeletonWrapper = document.getElementById('dashboardSkeletonWrapper');
+    const liveContent = document.getElementById('dashboardLiveContent');
+    const refreshBtn = document.getElementById('refreshMetricsBtn');
+
     function showDashboardSkeleton() {
-        const content = document.getElementById('dashboardLiveContent');
-        const skeleton = document.getElementById('dashboardSkeletonWrapper');
-        if (content && skeleton) {
-            content.classList.add('d-none');
-            skeleton.classList.remove('d-none');
+        if (skeletonWrapper && liveContent) {
+            liveContent.classList.add('d-none');
+            skeletonWrapper.classList.remove('d-none');
         }
     }
 
-    function handleRangeChange(val) {
-        const customWrapper = document.getElementById('customDatesWrapper');
-        if (val === 'custom') {
-            customWrapper.classList.remove('d-none');
-        } else {
-            customWrapper.classList.add('d-none');
+    if (rangeSelector) {
+        rangeSelector.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                customWrapper.classList.remove('d-none');
+                customWrapper.classList.add('d-flex');
+            } else {
+                customWrapper.classList.remove('d-flex');
+                customWrapper.classList.add('d-none');
+                showDashboardSkeleton();
+                filterForm.submit();
+            }
+        });
+    }
+
+    if (filterForm) {
+        filterForm.addEventListener('submit', function() {
             showDashboardSkeleton();
-            document.getElementById('filterForm').submit();
-        }
+        });
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
-        document.getElementById('filterForm')?.addEventListener('submit', showDashboardSkeleton);
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            showDashboardSkeleton();
+        });
+    }
 
-        Chart.defaults.color = '#B8C2D8';
-        Chart.defaults.font.family = "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif";
-        Chart.defaults.borderColor = '#26364D';
+    // 2. Smooth KPI Number Counter
+    const counters = document.querySelectorAll('[data-counter]');
+    counters.forEach(counter => {
+        const target = parseInt(counter.getAttribute('data-counter'), 10);
+        if (isNaN(target) || target <= 0) return;
 
-        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        Chart.defaults.animation = prefersReducedMotion ? false : {
-            duration: 750,
-            easing: 'easeOutQuart'
-        };
+        const duration = 450;
+        const startTime = performance.now();
 
-        const tooltipConfig = {
-            backgroundColor: '#0B1528',
-            titleColor: '#FFFFFF',
-            bodyColor: '#B8C2D8',
-            borderColor: '#26364D',
-            borderWidth: 1,
-            padding: 10,
-            boxPadding: 4,
-            usePointStyle: true,
-        };
-
-        // 1. Stock Movements Bar Chart
-        const stockCanvas = document.getElementById('stockMovementChart');
-        if (stockCanvas) {
-            new Chart(stockCanvas, {
-                type: 'bar',
-                data: {
-                    labels: @json($chartLabels),
-                    datasets: [
-                        {
-                            label: 'Stock In (Replenished)',
-                            data: @json($stockInData),
-                            backgroundColor: 'rgba(34, 197, 94, 0.75)',
-                            borderColor: '#22C55E',
-                            borderWidth: 1,
-                            borderRadius: 4,
-                        },
-                        {
-                            label: 'Stock Out (Kitchen Usage)',
-                            data: @json($stockOutData),
-                            backgroundColor: 'rgba(31, 106, 225, 0.75)',
-                            borderColor: '#1F6AE1',
-                            borderWidth: 1,
-                            borderRadius: 4,
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: { boxWidth: 12, usePointStyle: true }
-                        },
-                        tooltip: tooltipConfig
-                    },
-                    scales: {
-                        x: {
-                            grid: { color: 'rgba(38, 54, 77, 0.35)', drawBorder: false },
-                            ticks: { color: '#B8C2D8', font: { size: 10 } }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: 'rgba(38, 54, 77, 0.35)', drawBorder: false },
-                            ticks: { color: '#B8C2D8', font: { size: 10 } }
-                        }
-                    }
-                }
-            });
+        function updateCounter(now) {
+            const progress = Math.min((now - startTime) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            counter.textContent = Math.floor(eased * target).toLocaleString();
+            if (progress < 1) {
+                requestAnimationFrame(updateCounter);
+            } else {
+                counter.textContent = target.toLocaleString();
+            }
         }
-
-        // 2. Inventory Health Status Doughnut Chart
-        const statusCanvas = document.getElementById('inventoryStatusChart');
-        if (statusCanvas) {
-            new Chart(statusCanvas, {
-                type: 'doughnut',
-                data: {
-                    labels: @json($statusLabels),
-                    datasets: [{
-                        data: @json($statusData),
-                        backgroundColor: [
-                            'rgba(34, 197, 94, 0.85)',
-                            'rgba(245, 158, 11, 0.85)',
-                            'rgba(239, 68, 68, 0.85)'
-                        ],
-                        borderColor: '#121E2E',
-                        borderWidth: 2,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '68%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: tooltipConfig
-                    }
-                }
-            });
-        }
+        requestAnimationFrame(updateCounter);
     });
+
+    if (typeof Chart === 'undefined') return;
+
+    // Strict Eustace Batchoy Brand Palette (No non-brand blue/navy)
+    Chart.defaults.color = '#BDBDBD';
+    Chart.defaults.borderColor = '#262626';
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+
+    const tooltipTheme = {
+        backgroundColor: '#111111',
+        titleColor: '#FFFFFF',
+        bodyColor: '#BDBDBD',
+        borderColor: '#333333',
+        borderWidth: 1,
+        padding: 10,
+        cornerRadius: 8
+    };
+
+    // 3. Inventory Overview Donut Chart
+    const statusCanvas = document.getElementById('inventoryStatusChart');
+    if (statusCanvas) {
+        new Chart(statusCanvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: {!! json_encode($statusLabels) !!},
+                datasets: [{
+                    data: {!! json_encode($statusData) !!},
+                    backgroundColor: [
+                        '#4CAF50', // In Stock
+                        '#FFC107', // Low Stock
+                        '#E53935'  // Out of Stock
+                    ],
+                    borderColor: '#1B1B1B',
+                    borderWidth: 3,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: tooltipTheme
+                }
+            }
+        });
+    }
+
+    // 4. Stock Movement Trends Line Chart
+    const movementCanvas = document.getElementById('stockMovementChart');
+    if (movementCanvas) {
+        new Chart(movementCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: {!! json_encode($chartLabels) !!},
+                datasets: [
+                    {
+                        label: 'Add Stock (In)',
+                        data: {!! json_encode($stockInData) !!},
+                        borderColor: '#4CAF50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.14)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#4CAF50',
+                        pointRadius: 3,
+                        fill: true,
+                        tension: 0.35
+                    },
+                    {
+                        label: 'Remove Stock (Out)',
+                        data: {!! json_encode($stockOutData) !!},
+                        borderColor: '#E53935',
+                        backgroundColor: 'rgba(229, 57, 53, 0.14)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#E53935',
+                        pointRadius: 3,
+                        fill: true,
+                        tension: 0.35
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        align: 'end',
+                        labels: { usePointStyle: true, boxWidth: 8, color: '#FFFFFF', font: { size: 11 } }
+                    },
+                    tooltip: tooltipTheme
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8, font: { size: 11 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#242424' },
+                        ticks: { font: { size: 11 } }
+                    }
+                }
+            }
+        });
+    }
+});
 </script>
 @endsection

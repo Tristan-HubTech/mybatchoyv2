@@ -312,11 +312,15 @@ export const SettingsProfileScreen: React.FC = () => {
       {isOwner && tab === 'business' && (
         <>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Business & Security Configuration</Text>
+            <Text style={styles.cardTitle}>Business Details &amp; Stock Defaults</Text>
+            <Text style={[styles.cardSub, { marginBottom: 10 }]}>
+              Update your shop contact details, auto sign-out timer, and default low-stock numbers.
+            </Text>
             <FormField
               label="Business Name"
               value={businessName}
               onChangeText={setBusinessName}
+              placeholder="e.g. Eustace Batchoy"
               required
             />
             <FormField
@@ -331,23 +335,23 @@ export const SettingsProfileScreen: React.FC = () => {
               onChangeText={setBizEmail}
               keyboardType="email-address"
             />
-            <FormField label="Address" value={bizAddress} onChangeText={setBizAddress} />
+            <FormField label="Shop Address" value={bizAddress} onChangeText={setBizAddress} />
             <FormField
-              label="Session Timeout (Minutes: 5–240)"
+              label="Auto Sign-Out After Inactive Minutes (5–240)"
               value={sessionTimeout}
               onChangeText={setSessionTimeout}
               keyboardType="numeric"
               required
             />
             <FormField
-              label="Default Minimum Stock Level"
+              label="Default Minimum Stock (Warn when below)"
               value={defaultMinStock}
               onChangeText={setDefaultMinStock}
               keyboardType="decimal-pad"
               required
             />
             <FormField
-              label="Default Reorder Level"
+              label="Default Reorder Level (Suggested order point)"
               value={defaultReorder}
               onChangeText={setDefaultReorder}
               keyboardType="decimal-pad"

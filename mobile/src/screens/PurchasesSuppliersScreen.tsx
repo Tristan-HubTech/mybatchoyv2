@@ -23,9 +23,9 @@ import {
 } from '../components/UI';
 
 const SUB_TABS = [
-  { key: 'purchases', label: 'Purchases' },
-  { key: 'new_purchase', label: '+ Record Purchase' },
-  { key: 'suppliers', label: 'Suppliers' },
+  { key: 'purchases', label: 'Supply Orders' },
+  { key: 'new_purchase', label: '+ New Supply Order' },
+  { key: 'suppliers', label: 'Manage Suppliers' },
 ];
 
 interface DraftLineItem {
@@ -259,6 +259,13 @@ export const PurchasesSuppliersScreen: React.FC = () => {
         }
         keyboardShouldPersistTaps="handled"
       >
+        <View style={{ marginBottom: 10 }}>
+          <Text style={[styles.cardTitle, { fontSize: 18 }]}>Manage Suppliers &amp; Supply Orders</Text>
+          <Text style={styles.cardSub}>
+            Save supplier contacts and record deliveries to automatically add stock.
+          </Text>
+        </View>
+
         <FilterChips
           options={SUB_TABS}
           selected={tab}
@@ -287,8 +294,8 @@ export const PurchasesSuppliersScreen: React.FC = () => {
             ) : purchases.length === 0 ? (
               <EmptyState
                 icon="cart-outline"
-                title="No purchase records found"
-                subtitle="Record purchases to automatically increment stock quantities."
+                title="No supply orders found"
+                subtitle="Record a supply order to add delivered items and track costs automatically."
               />
             ) : (
               purchases.map((po) => (
@@ -323,7 +330,10 @@ export const PurchasesSuppliersScreen: React.FC = () => {
 
         {tab === 'new_purchase' && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Record New Purchase Order</Text>
+            <Text style={styles.cardTitle}>Record New Supply Order</Text>
+            <Text style={[styles.cardSub, { marginBottom: 4 }]}>
+              Step 1: Pick supplier and delivery date → Step 2: Add items bought → Step 3: Save to add stock.
+            </Text>
 
             <Text style={[styles.cardSub, { marginTop: 10, marginBottom: 6 }]}>Supplier</Text>
             <FilterChips
@@ -401,14 +411,14 @@ export const PurchasesSuppliersScreen: React.FC = () => {
             />
 
             <View style={styles.grandTotalRow}>
-              <Text style={styles.cardTitle}>Calculated Total</Text>
+              <Text style={styles.cardTitle}>Total Supply Order Cost</Text>
               <Text style={styles.totalAmount}>
                 ₱{computedGrandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
               </Text>
             </View>
 
             <PrimaryButton
-              title="Save Purchase & Update Stock"
+              title="Save Supply Order & Add Stock"
               icon="checkmark-circle-outline"
               onPress={handleCreatePurchase}
               loading={poSubmitting}
@@ -419,9 +429,12 @@ export const PurchasesSuppliersScreen: React.FC = () => {
         {tab === 'suppliers' && (
           <>
             <View style={[styles.cardTop, { marginBottom: 10 }]}>
-              <Text style={styles.cardTitle}>Suppliers ({suppliers.length})</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>Manage Suppliers ({suppliers.length})</Text>
+                <Text style={styles.cardSub}>Tap any supplier to view past orders.</Text>
+              </View>
               <PrimaryButton
-                title="Add Supplier"
+                title="+ Add Supplier"
                 icon="person-add-outline"
                 onPress={() => openSupplierForm()}
                 style={{ minHeight: 38, paddingVertical: 6 }}
@@ -431,14 +444,14 @@ export const PurchasesSuppliersScreen: React.FC = () => {
             <SearchBar
               value={supplierSearch}
               onChangeText={setSupplierSearch}
-              placeholder="Search supplier or contact person..."
+              placeholder="Search supplier name or contact person..."
             />
 
             {suppliers.length === 0 ? (
               <EmptyState
                 icon="business-outline"
                 title="No suppliers found"
-                subtitle="Add suppliers to link them with inventory purchases."
+                subtitle="Add suppliers here so you can select them quickly when recording deliveries."
               />
             ) : (
               suppliers.map((sup) => (
@@ -533,26 +546,46 @@ export const PurchasesSuppliersScreen: React.FC = () => {
                   <Ionicons name="close-circle" size={26} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               </View>
-              <FormField label="Supplier Name" value={supName} onChangeText={setSupName} required />
+              <FormField
+                label="Supplier or Store Name"
+                value={supName}
+                onChangeText={setSupName}
+                placeholder="e.g. Iloilo Fresh Meat Supply"
+                required
+              />
               <FormField
                 label="Contact Person"
                 value={supContact}
                 onChangeText={setSupContact}
+                placeholder="e.g. Mang Pedro"
               />
               <FormField
-                label="Phone"
+                label="Phone Number"
                 value={supPhone}
                 onChangeText={setSupPhone}
+                placeholder="e.g. 0917 123 4567"
                 keyboardType="phone-pad"
               />
               <FormField
-                label="Email"
+                label="Email (Optional)"
                 value={supEmail}
                 onChangeText={setSupEmail}
+                placeholder="e.g. supplier@example.com"
                 keyboardType="email-address"
               />
-              <FormField label="Address" value={supAddress} onChangeText={setSupAddress} />
-              <FormField label="Notes" value={supNotes} onChangeText={setSupNotes} multiline />
+              <FormField
+                label="Store or Market Address"
+                value={supAddress}
+                onChangeText={setSupAddress}
+                placeholder="e.g. La Paz Public Market"
+              />
+              <FormField
+                label="Notes (Optional)"
+                value={supNotes}
+                onChangeText={setSupNotes}
+                placeholder="Delivery days or payment terms"
+                multiline
+              />
               <PrimaryButton
                 title={editingSupplier ? 'Update Supplier' : 'Save Supplier'}
                 onPress={handleSaveSupplier}

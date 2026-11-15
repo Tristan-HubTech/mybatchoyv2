@@ -14,11 +14,15 @@ import { COLORS } from './src/theme/colors';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { InventoryScreen } from './src/screens/InventoryScreen';
-import { TransactionsScreen } from './src/screens/TransactionsScreen';
+import {
+  TransactionLaunchRequest,
+  TransactionsScreen,
+} from './src/screens/TransactionsScreen';
 import { PurchasesSuppliersScreen } from './src/screens/PurchasesSuppliersScreen';
 import { ReportsScreen } from './src/screens/ReportsScreen';
 import { StaffAuditScreen } from './src/screens/StaffAuditScreen';
 import { SettingsProfileScreen } from './src/screens/SettingsProfileScreen';
+import { FirstTimeGuideModal, useFirstTimeGuide } from './src/components/FirstTimeGuide';
 
 interface NavItem {
   key: string;
@@ -28,12 +32,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'grid-outline' },
-  { key: 'inventory', label: 'Inventory', icon: 'cube-outline' },
-  { key: 'transactions', label: 'Stock Ops', icon: 'swap-vertical-outline' },
-  { key: 'purchases', label: 'Purchases', icon: 'cart-outline', ownerOnly: true },
+  { key: 'dashboard', label: 'Home', icon: 'grid-outline' },
+  { key: 'inventory', label: 'Stock', icon: 'cube-outline' },
+  { key: 'transactions', label: 'Add / Out', icon: 'swap-vertical-outline' },
+  { key: 'purchases', label: 'Orders', icon: 'cart-outline', ownerOnly: true },
   { key: 'reports', label: 'Reports', icon: 'bar-chart-outline', ownerOnly: true },
-  { key: 'staff', label: 'Staff/Audit', icon: 'people-outline', ownerOnly: true },
+  { key: 'staff', label: 'Team / Log', icon: 'people-outline', ownerOnly: true },
   { key: 'settings', label: 'Account', icon: 'settings-outline' },
 ];
 
@@ -43,11 +47,22 @@ const MainShell: React.FC = () => {
   const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>({
     dashboard: true,
   });
+  const [txLaunch, setTxLaunch] = useState<TransactionLaunchRequest | null>(null);
+  const guide = useFirstTimeGuide();
 
   const handleSelectTab = useCallback((tabKey: string) => {
     setVisitedTabs((prev) => (prev[tabKey] ? prev : { ...prev, [tabKey]: true }));
     setActiveTab(tabKey);
   }, []);
+
+  const handleQuickTransaction = useCallback(
+    (mode: TransactionLaunchRequest['mode'], itemId?: number) => {
+      setVisitedTabs((prev) => (prev.transactions ? prev : { ...prev, transactions: true }));
+      setTxLaunch({ mode, itemId, nonce: Date.now() });
+      setActiveTab('transactions');
+    },
+    []
+  );
 
   const isOwner = user?.role === 'owner';
   const visibleTabs = useMemo(
@@ -77,17 +92,33 @@ const MainShell: React.FC = () => {
             {business?.business_name || 'MyBatchoy'}
           </Text>
         </View>
-        <View style={styles.rolePill}>
-          <Text style={styles.rolePillText}>
-            {isOwner ? 'OWNER / ADMIN' : 'STAFF'}
-          </Text>
+        <View style={styles.topBarRight}>
+          <TouchableOpacity
+            style={styles.helpButton}
+            onPress={guide.openGuide}
+            accessibilityLabel="Open Quick Help Guide"
+          >
+            <Ionicons name="help-circle-outline" size={16} color={COLORS.secondary} />
+            <Text style={styles.helpButtonText}>Help</Text>
+          </TouchableOpacity>
+          <View style={styles.rolePill}>
+            <Text style={styles.rolePillText}>
+              {isOwner ? 'OWNER' : 'STAFF'}
+            </Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.body}>
         {visitedTabs.dashboard && (
           <View style={[styles.screenPane, activeTab !== 'dashboard' && styles.hiddenPane]}>
-            <DashboardScreen onNavigateTab={handleSelectTab} />
+            <DashboardScreen
+              onNavigateTab={handleSelectTab}
+              onQuickTransaction={handleQuickTransaction}
+              showWelcomeCard={guide.showWelcomeCard}
+              onOpenGuide={guide.openGuide}
+              onDismissGuide={guide.dismissForever}
+            />
           </View>
         )}
         {visitedTabs.inventory && (
@@ -97,7 +128,7 @@ const MainShell: React.FC = () => {
         )}
         {visitedTabs.transactions && (
           <View style={[styles.screenPane, activeTab !== 'transactions' && styles.hiddenPane]}>
-            <TransactionsScreen />
+            <TransactionsScreen launchRequest={txLaunch} />
           </View>
         )}
         {isOwner && visitedTabs.purchases && (
@@ -149,6 +180,13 @@ const MainShell: React.FC = () => {
           );
         })}
       </View>
+      <FirstTimeGuideModal
+        visible={guide.guideVisible}
+        isOwner={isOwner}
+        showDismissForever={guide.showWelcomeCard}
+        onClose={guide.closeGuide}
+        onDismissForever={guide.dismissForever}
+      />
     </SafeAreaView>
   );
 };
@@ -204,12 +242,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  helpButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.secondary,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  helpButtonText: {
+    color: COLORS.secondary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
   rolePill: {
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: 9,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   rolePillText: {
@@ -232,12 +291,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     paddingVertical: 6,
+    minHeight: 54,
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   navLabel: {
     fontSize: 10,

@@ -17,6 +17,7 @@ use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DashboardController::class, 'index'])->name('home');
+Route::get('/home', [DashboardController::class, 'index']);
 Route::redirect('/about', '/login')->name('about');
 Route::redirect('/contact', '/login')->name('contact');
 Route::redirect('/menu', '/login')->name('menu');
@@ -73,10 +74,19 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
         Route::post('/owner/staff', [StaffController::class, 'store'])->name('owner.staff.store');
         Route::get('/owner/staff/{staff}/edit', [StaffController::class, 'edit'])->name('owner.staff.edit');
         Route::put('/owner/staff/{staff}', [StaffController::class, 'update'])->name('owner.staff.update');
+        Route::patch('/owner/staff/{staff}/approve', [StaffController::class, 'approveRequest'])->name('owner.staff.approve');
+        Route::delete('/owner/staff/{staff}/reject', [StaffController::class, 'rejectRequest'])->name('owner.staff.reject');
         Route::patch('/owner/staff/{staff}/status', [StaffController::class, 'updateStatus'])->name('owner.staff.status');
         Route::put('/owner/staff/{staff}/password', [StaffController::class, 'resetPassword'])->name('owner.staff.password');
         Route::get('/owner/settings', [SettingsController::class, 'index'])->name('owner.settings.index');
         Route::put('/owner/settings', [SettingsController::class, 'update'])->name('owner.settings.update');
+        Route::post('/owner/settings/security/mfa-challenge', [SettingsController::class, 'sendMfaChallenge'])->name('owner.settings.mfa.challenge');
+        Route::post('/owner/settings/security/mfa-authenticator', [SettingsController::class, 'configureAuthenticator'])->name('owner.settings.mfa.configure');
+        Route::delete('/owner/settings/security/mfa-authenticator', [SettingsController::class, 'disableAuthenticator'])->name('owner.settings.mfa.disable');
+        Route::post('/owner/settings/security/sessions/{user}/revoke', [SettingsController::class, 'revokeActiveSession'])->name('owner.settings.sessions.revoke');
+        Route::post('/owner/settings/staff-access/verify', [SettingsController::class, 'verifyStaffAccessManagement'])->name('owner.settings.staff-access.verify');
+        Route::post('/owner/settings/staff-access/lock', [SettingsController::class, 'lockStaffAccessManagement'])->name('owner.settings.staff-access.lock');
+        Route::post('/owner/settings/staff-access/create', [SettingsController::class, 'storeStaffAccount'])->name('owner.settings.staff-access.create');
         Route::post('/owner/settings/inventory/categories', [InventorySettingsController::class, 'storeCategory'])->name('owner.settings.categories.store');
         Route::put('/owner/settings/inventory/categories/{category}', [InventorySettingsController::class, 'updateCategory'])->name('owner.settings.categories.update');
         Route::patch('/owner/settings/inventory/categories/{category}/status', [InventorySettingsController::class, 'updateCategoryStatus'])->name('owner.settings.categories.status');

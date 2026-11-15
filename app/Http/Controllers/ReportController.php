@@ -7,13 +7,19 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $validated = $request->validate([
+            'from' => 'nullable|date',
+            'to' => 'nullable|date|after_or_equal:from',
+        ]);
+
         $items = InventoryItem::with(['category', 'unit'])->get();
 
         // Single subquery for latest purchase unit_cost per inventory_item_id
@@ -30,13 +36,26 @@ class ReportController extends Controller
             return (float) $item->current_quantity * (float) $cost;
         });
 
-        $totalPurchases = Purchase::sum('total_amount');
+        $purchasesQuery = Purchase::query();
+        $transactionsQuery = InventoryTransaction::query();
+
+        if (!empty($validated['from'])) {
+            $purchasesQuery->whereDate('purchase_date', '>=', $validated['from']);
+            $transactionsQuery->whereDate('transaction_date', '>=', $validated['from']);
+        }
+        if (!empty($validated['to'])) {
+            $purchasesQuery->whereDate('purchase_date', '<=', $validated['to']);
+            $transactionsQuery->whereDate('transaction_date', '<=', $validated['to']);
+        }
+
+        $totalPurchases = (clone $purchasesQuery)->sum('total_amount');
         $monthlyPurchases = Purchase::whereMonth('purchase_date', now()->month)
             ->whereYear('purchase_date', now()->year)
             ->sum('total_amount');
 
         // Single grouped query for transaction totals by type
-        $txSums = InventoryTransaction::whereIn('transaction_type', ['stock_out', 'spoilage', 'stock_in'])
+        $txSums = (clone $transactionsQuery)
+            ->whereIn('transaction_type', ['stock_out', 'spoilage', 'stock_in'])
             ->groupBy('transaction_type')
             ->selectRaw('transaction_type, COALESCE(SUM(quantity), 0) as total_qty')
             ->pluck('total_qty', 'transaction_type');
@@ -59,8 +78,8 @@ class ReportController extends Controller
                 ];
             });
 
-        $recentPurchases = Purchase::with(['supplier', 'creator'])->latest('purchase_date')->take(5)->get();
-        $recentTransactions = InventoryTransaction::with(['inventoryItem', 'user'])->latest()->take(6)->get();
+        $recentPurchases = (clone $purchasesQuery)->with(['supplier', 'creator'])->latest('purchase_date')->take(5)->get();
+        $recentTransactions = (clone $transactionsQuery)->with(['inventoryItem', 'user'])->latest()->take(6)->get();
 
         return view('reports.index', compact(
             'items',

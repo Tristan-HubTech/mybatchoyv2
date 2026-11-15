@@ -20,6 +20,7 @@ import {
   SkeletonList,
   StatusBadge,
 } from '../components/UI';
+import { FirstTimeWelcomeBanner } from '../components/FirstTimeGuide';
 
 const RANGE_OPTIONS = [
   { key: 'today', label: 'Today' },
@@ -28,9 +29,36 @@ const RANGE_OPTIONS = [
   { key: 'this_month', label: 'This Month' },
 ];
 
+type QuickTxMode = 'history' | 'stock_in' | 'stock_out' | 'adjustment' | 'spoilage';
+
+const txLabel = (type: string) => {
+  switch (type) {
+    case 'stock_in':
+      return 'Stock In';
+    case 'stock_out':
+      return 'Stock Out';
+    case 'adjustment':
+      return 'Adjustment';
+    case 'spoilage':
+      return 'Spoilage';
+    default:
+      return type.replace('_', ' ');
+  }
+};
+
 export const DashboardScreen: React.FC<{
   onNavigateTab: (tab: string) => void;
-}> = ({ onNavigateTab }) => {
+  onQuickTransaction?: (mode: QuickTxMode, itemId?: number) => void;
+  showWelcomeCard?: boolean;
+  onOpenGuide?: () => void;
+  onDismissGuide?: () => void;
+}> = ({
+  onNavigateTab,
+  onQuickTransaction,
+  showWelcomeCard,
+  onOpenGuide,
+  onDismissGuide,
+}) => {
   const { user } = useAuth();
   const [range, setRange] = useState<string>('7days');
   const [loading, setLoading] = useState<boolean>(true);
@@ -80,21 +108,65 @@ export const DashboardScreen: React.FC<{
         />
       }
     >
+      {showWelcomeCard && onOpenGuide && onDismissGuide && (
+        <FirstTimeWelcomeBanner onOpenGuide={onOpenGuide} onDismiss={onDismissGuide} />
+      )}
+
       <View style={styles.welcomeCard}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Welcome back, {user?.name}</Text>
+        <View style={{ flex: 1, paddingRight: 10 }}>
+          <Text style={styles.greeting}>Welcome back,</Text>
+          <Text style={styles.greetingName}>{user?.name}!</Text>
           <Text style={styles.roleBadgeText}>
-            {isOwner ? 'Owner / Admin Dashboard' : 'Staff Operations Dashboard'} •{' '}
-            {data?.range?.label || 'Last 7 Days'}
+            Here&apos;s what&apos;s happening today. ({data?.range?.label || 'Last 7 Days'})
           </Text>
         </View>
-        <View style={styles.quickBtnRow}>
+        <View style={styles.heroBowlBadge}>
+          <Ionicons name="restaurant" size={26} color={COLORS.secondary} />
+        </View>
+      </View>
+
+      <View style={styles.quickGridCard}>
+        <Text style={styles.quickGridTitle}>What would you like to do?</Text>
+        <View style={styles.quickGrid}>
           <TouchableOpacity
-            style={styles.quickActionPill}
-            onPress={() => onNavigateTab('transactions')}
+            style={[styles.quickActionTile, { borderColor: COLORS.success }]}
+            onPress={() =>
+              onQuickTransaction ? onQuickTransaction('stock_in') : onNavigateTab('transactions')
+            }
           >
-            <Ionicons name="swap-vertical" size={16} color={COLORS.text} />
-            <Text style={styles.quickActionText}>Stock Ops</Text>
+            <Ionicons name="add-circle-outline" size={22} color={COLORS.success} />
+            <Text style={styles.quickTileLabel}>+ Add Stock</Text>
+            <Text style={styles.quickTileHint}>New delivery</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.quickActionTile, { borderColor: COLORS.primary }]}
+            onPress={() =>
+              onQuickTransaction ? onQuickTransaction('stock_out') : onNavigateTab('transactions')
+            }
+          >
+            <Ionicons name="remove-circle-outline" size={22} color={COLORS.primary} />
+            <Text style={styles.quickTileLabel}>- Remove Stock</Text>
+            <Text style={styles.quickTileHint}>Kitchen usage</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.quickActionTile, { borderColor: COLORS.secondary }]}
+            onPress={() =>
+              onQuickTransaction ? onQuickTransaction('adjustment') : onNavigateTab('inventory')
+            }
+          >
+            <Ionicons name="create-outline" size={22} color={COLORS.secondary} />
+            <Text style={styles.quickTileLabel}>Correct Stock</Text>
+            <Text style={styles.quickTileHint}>After counting</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.quickActionTile, { borderColor: COLORS.danger }]}
+            onPress={() =>
+              onQuickTransaction ? onQuickTransaction('spoilage') : onNavigateTab('transactions')
+            }
+          >
+            <Ionicons name="warning-outline" size={22} color={COLORS.danger} />
+            <Text style={styles.quickTileLabel}>Spoilage</Text>
+            <Text style={styles.quickTileHint}>Expired or waste</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -107,61 +179,98 @@ export const DashboardScreen: React.FC<{
         <SkeletonList count={5} height={92} />
       ) : (
         <>
+          <View
+            style={[
+              styles.attentionCard,
+              {
+                borderColor:
+                  (summary.out_of_stock_count ?? 0) > 0 || (summary.low_stock_count ?? 0) > 0
+                    ? COLORS.warning
+                    : COLORS.success,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Ionicons
+                name={
+                  (summary.out_of_stock_count ?? 0) > 0 || (summary.low_stock_count ?? 0) > 0
+                    ? 'alert-circle-outline'
+                    : 'checkmark-circle-outline'
+                }
+                size={20}
+                color={
+                  (summary.out_of_stock_count ?? 0) > 0 || (summary.low_stock_count ?? 0) > 0
+                    ? COLORS.warning
+                    : COLORS.success
+                }
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.attentionTitle}>What Needs Attention Today?</Text>
+            </View>
+            {(summary.out_of_stock_count ?? 0) > 0 || (summary.low_stock_count ?? 0) > 0 ? (
+              <Text style={styles.attentionText}>
+                {summary.out_of_stock_count ?? 0} item(s) are out of stock and{' '}
+                {summary.low_stock_count ?? 0} item(s) are running low. Tap &quot;+ Add Stock&quot; on
+                any alert below when deliveries arrive.
+              </Text>
+            ) : (
+              <Text style={styles.attentionText}>
+                All items have enough stock today. Nothing needs urgent restocking right now.
+              </Text>
+            )}
+          </View>
+
           <View style={styles.metricsGrid}>
             <MetricCard
-              label="Active Items"
+              label="Items"
               value={summary.total_items ?? 0}
               icon="cube-outline"
               accentColor={COLORS.primary}
-              subtitle={`${summary.in_stock_count ?? 0} healthy stock`}
+              subtitle={`${summary.in_stock_count ?? 0} in stock`}
+            />
+            {isOwner ? (
+              <MetricCard
+                label="Purchases"
+                value={summary.purchases_count ?? 0}
+                icon="cart-outline"
+                accentColor={COLORS.secondary}
+                subtitle={`₱${Number(summary.purchasing_expenses ?? 0).toLocaleString('en-PH', {
+                  minimumFractionDigits: 2,
+                })}`}
+              />
+            ) : (
+              <MetricCard
+                label="In Stock"
+                value={summary.in_stock_count ?? 0}
+                icon="checkmark-circle-outline"
+                accentColor={COLORS.success}
+                subtitle="Healthy supply"
+              />
+            )}
+            <MetricCard
+              label="Movements"
+              value={summary.period_movements_count ?? 0}
+              icon="swap-horizontal-outline"
+              accentColor={COLORS.success}
+              subtitle={data?.range?.label}
             />
             <MetricCard
               label="Low Stock"
               value={summary.low_stock_count ?? 0}
               icon="warning-outline"
-              accentColor={COLORS.warning}
-              subtitle="Needs restock"
-            />
-            <MetricCard
-              label="Out of Stock"
-              value={summary.out_of_stock_count ?? 0}
-              icon="alert-circle-outline"
               accentColor={COLORS.danger}
-              subtitle="Depleted items"
+              subtitle={
+                (summary.out_of_stock_count ?? 0) > 0
+                  ? `${summary.out_of_stock_count} out of stock`
+                  : 'Reorder alerts'
+              }
             />
-            <MetricCard
-              label={isOwner ? 'Movements' : 'My Movements'}
-              value={summary.period_movements_count ?? 0}
-              icon="pulse-outline"
-              accentColor={COLORS.success}
-              subtitle={data?.range?.label}
-            />
-            {isOwner && (
-              <>
-                <MetricCard
-                  label="Purchase Spend"
-                  value={`₱${Number(summary.purchasing_expenses ?? 0).toLocaleString('en-PH', {
-                    minimumFractionDigits: 2,
-                  })}`}
-                  icon="cart-outline"
-                  accentColor={COLORS.secondary}
-                  subtitle={`${summary.purchases_count ?? 0} orders in period`}
-                />
-                <MetricCard
-                  label="Healthy Stock"
-                  value={summary.in_stock_count ?? 0}
-                  icon="checkmark-circle-outline"
-                  accentColor={COLORS.success}
-                  subtitle="Above minimum level"
-                />
-              </>
-            )}
           </View>
 
           {movementChart && movementChart.labels?.length > 0 && (
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>
-                {isOwner ? 'Stock Movements (In vs Out)' : 'My Stock Movements'}
+                {isOwner ? 'Daily Stock Added vs Removed' : 'My Daily Stock Activity'}
               </Text>
               {movementChart.labels.slice(-7).map((label: string, idx: number) => {
                 const inVal = Number(movementChart.stock_in?.[idx] ?? 0);
@@ -171,10 +280,10 @@ export const DashboardScreen: React.FC<{
                     <Text style={styles.chartLabel}>{label}</Text>
                     <View style={styles.chartValues}>
                       <Text style={[styles.chartChip, { color: COLORS.success }]}>
-                        +{inVal} In
+                        +{inVal} Added
                       </Text>
                       <Text style={[styles.chartChip, { color: COLORS.danger }]}>
-                        -{outVal} Out
+                        -{outVal} Removed
                       </Text>
                     </View>
                   </View>
@@ -184,9 +293,9 @@ export const DashboardScreen: React.FC<{
           )}
 
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeading}>Urgent Stock Alerts</Text>
+            <Text style={styles.sectionHeading}>Items Running Low or Out</Text>
             <TouchableOpacity onPress={() => onNavigateTab('inventory')}>
-              <Text style={styles.viewAllLink}>View Inventory</Text>
+              <Text style={styles.viewAllLink}>View All Stock</Text>
             </TouchableOpacity>
           </View>
 
@@ -203,78 +312,105 @@ export const DashboardScreen: React.FC<{
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemName}>{item.name}</Text>
                     <Text style={styles.itemMeta}>
-                      SKU: {item.sku} • {item.category_name}
+                      Code: {item.sku} • {item.category_name}
                     </Text>
                   </View>
                   <StatusBadge status={item.status} />
                 </View>
                 <View style={styles.itemCardBottom}>
-                  <Text style={styles.qtyText}>
-                    Current:{' '}
-                    <Text style={{ color: COLORS.text, fontWeight: '700' }}>
-                      {item.current_quantity} {item.unit_short_name}
+                  <View>
+                    <Text style={styles.qtyText}>
+                      On hand:{' '}
+                      <Text style={{ color: COLORS.text, fontWeight: '700' }}>
+                        {item.current_quantity} {item.unit_short_name}
+                      </Text>
                     </Text>
-                  </Text>
-                  <Text style={styles.qtyText}>
-                    Min: {item.minimum_stock_level} {item.unit_short_name}
-                  </Text>
+                    <Text style={styles.qtyText}>
+                      Minimum: {item.minimum_stock_level} {item.unit_short_name}
+                    </Text>
+                  </View>
+                  {onQuickTransaction && (
+                    <TouchableOpacity
+                      style={styles.restockMiniBtn}
+                      onPress={() => onQuickTransaction('stock_in', item.id)}
+                    >
+                      <Ionicons name="add-circle" size={16} color="#111111" />
+                      <Text style={styles.restockMiniBtnText}>Add Stock</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             ))
           )}
 
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeading}>
-              {isOwner ? 'Recent Stock Transactions' : 'My Recent Transactions'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={styles.sectionYellowBar} />
+              <Text style={styles.sectionHeading}>Recent Transactions</Text>
+            </View>
             <TouchableOpacity onPress={() => onNavigateTab('transactions')}>
-              <Text style={styles.viewAllLink}>All History</Text>
+              <Text style={styles.viewAllLink}>View All →</Text>
             </TouchableOpacity>
           </View>
 
           {recentTransactions.length === 0 ? (
             <EmptyState
               icon="swap-horizontal-outline"
-              title="No recent transactions"
-              subtitle="Stock movements recorded will appear here."
+              title="No recent stock activity"
+              subtitle="When stock is added, removed, or counted, it appears here."
             />
           ) : (
-            recentTransactions.map((tx) => (
-              <View key={tx.id} style={styles.itemCard}>
-                <View style={styles.itemCardTop}>
-                  <Text style={styles.itemName}>{tx.item_name}</Text>
-                  <Text
+            <View style={styles.txListCard}>
+              {recentTransactions.map((tx, idx) => {
+                const isStockIn = tx.transaction_type === 'stock_in';
+                const isAdjust = tx.transaction_type === 'adjustment';
+                const accent = isStockIn
+                  ? COLORS.success
+                  : isAdjust
+                  ? COLORS.secondary
+                  : COLORS.danger;
+                const iconName = isAdjust ? 'construct' : 'swap-horizontal';
+                const iconFg = isAdjust ? '#111111' : '#FFFFFF';
+                const sign =
+                  isStockIn || (isAdjust && Number(tx.updated_quantity) >= Number(tx.previous_quantity))
+                    ? '+'
+                    : '-';
+                return (
+                  <View
+                    key={tx.id}
                     style={[
-                      styles.txTypeTag,
-                      {
-                        color:
-                          tx.transaction_type === 'stock_in'
-                            ? COLORS.success
-                            : tx.transaction_type === 'adjustment'
-                            ? COLORS.secondary
-                            : COLORS.danger,
-                      },
+                      styles.txRow,
+                      idx === recentTransactions.length - 1 && { borderBottomWidth: 0 },
                     ]}
                   >
-                    {tx.transaction_type.replace('_', ' ').toUpperCase()} ({tx.quantity}{' '}
-                    {tx.unit_short_name})
-                  </Text>
-                </View>
-                <Text style={styles.itemMeta}>
-                  {tx.previous_quantity} → {tx.updated_quantity} {tx.unit_short_name} • By{' '}
-                  {tx.user_name}
-                </Text>
-                {tx.reason ? <Text style={styles.reasonText}>Note: {tx.reason}</Text> : null}
-              </View>
-            ))
+                    <View style={[styles.txIconCircle, { backgroundColor: accent }]}>
+                      <Ionicons name={iconName} size={16} color={iconFg} />
+                    </View>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={[styles.txRowType, { color: accent }]}>
+                        {txLabel(tx.transaction_type)}
+                      </Text>
+                      <Text style={styles.itemName}>{tx.item_name}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[styles.txRowQty, { color: accent }]}>
+                        {sign}
+                        {tx.quantity} {tx.unit_short_name}
+                      </Text>
+                      <Text style={styles.txRowMeta}>By {tx.user_name}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
           )}
 
           {isOwner && recentPurchases.length > 0 && (
             <>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Recent Purchases</Text>
+                <Text style={styles.sectionHeading}>Recent Supply Orders</Text>
                 <TouchableOpacity onPress={() => onNavigateTab('purchases')}>
-                  <Text style={styles.viewAllLink}>View Purchases</Text>
+                  <Text style={styles.viewAllLink}>View Orders</Text>
                 </TouchableOpacity>
               </View>
               {recentPurchases.map((po) => (
@@ -314,32 +450,145 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 14,
+    padding: 15,
     marginBottom: 12,
   },
   greeting: {
     color: COLORS.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+  },
+  greetingName: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 1,
   },
   roleBadgeText: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 4,
   },
-  quickBtnRow: {
-    marginLeft: 10,
+  heroBowlBadge: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: 'rgba(229, 57, 53, 0.16)',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  quickActionPill: {
+  sectionYellowBar: {
+    width: 4,
+    height: 16,
+    borderRadius: 2,
+    backgroundColor: COLORS.secondary,
+    marginRight: 8,
+  },
+  txListCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 13,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+  txRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  txIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+  },
+  txRowType: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 1,
+  },
+  txRowQty: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  txRowMeta: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  quickGridCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
+    marginBottom: 12,
+  },
+  quickGridTitle: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  quickActionTile: {
+    width: '48%',
+    backgroundColor: COLORS.navBackground,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 11,
+  },
+  quickTileLabel: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  quickTileHint: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  attentionCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 13,
+    marginBottom: 12,
+  },
+  attentionTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  attentionText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  restockMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     borderRadius: 8,
   },
-  quickActionText: {
-    color: COLORS.text,
+  restockMiniBtnText: {
+    color: '#111111',
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 4,

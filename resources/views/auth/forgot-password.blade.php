@@ -1,61 +1,40 @@
 @extends('layouts.app')
 
-@section('title', 'Forgot Password')
+@section('title', 'Forgot Password — MyBatchoy')
 
 @section('content')
-<div class="container">
+<div class="container py-4">
     <div class="row justify-content-center">
-        <div class="col-md-5 col-lg-4">
-            <div class="card p-4 shadow">
-                <div class="text-center mb-4">
-                    <div class="brand-mark mx-auto mb-3" style="width: 48px; height: 48px; font-size: 1.1rem; border-radius: 12px;">MB</div>
-                    <h3 class="fw-bold mb-1">Reset Password</h3>
-                    <p class="muted small mb-0">Internal Inventory Management System</p>
+        <div class="col-md-7 col-lg-5">
+            <div class="eb-auth-card">
+                <div class="eb-auth-header">
+                    <img src="{{ asset('images/eustace-mascot.jpg') }}" alt="Eustace Batchoy" class="eb-auth-logo">
+                    <h1 class="h4 fw-bold text-white mb-1">Password Recovery</h1>
+                    <p class="small mb-0" style="color: #BDBDBD;">Enter your registered email address to receive a verification code.</p>
                 </div>
 
-                <div class="rounded-3 p-3 mb-3 small" style="background: rgba(31, 106, 225, 0.08); border: 1px solid rgba(111, 168, 255, 0.25);">
-                    <div class="d-flex gap-2">
-                        <span class="accent fw-bold" style="font-size: 1rem;">ℹ</span>
-                        <div class="muted" style="font-size: 0.8rem; line-height: 1.4;">
-                            Enter your registered email. If an active account matches, a secure <strong>6-digit verification code</strong> will be emailed and expire in 10 minutes.
+                <div class="eb-auth-body">
+                    <div class="eb-alert eb-alert-info small py-2 mb-3">
+                        Only active accounts with an existing email address can receive a recovery verification code.
+                    </div>
+
+                    <x-alert-banner />
+
+                    <form method="POST" action="{{ route('password.email') }}" data-safe-submit>
+                        @csrf
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email address</label>
+                            <input id="email" type="email" name="email" class="form-control" value="{{ old('email') }}" placeholder="name@example.com" required autofocus>
                         </div>
-                    </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" data-loading-label="Sending verification code...">
+                            Send Verification Code
+                        </button>
+                    </form>
                 </div>
 
-                @if (session('status'))
-                    <div class="alert alert-info py-2 small mb-3" style="background: rgba(31, 106, 225, 0.15); border-color: rgba(111, 168, 255, 0.3); color: #c9ddff;">
-                        {{ session('status') }}
-                    </div>
-                @endif
-
-                @if ($errors->any())
-                    <div class="alert alert-danger py-2 small mb-3">
-                        <ul class="mb-0 ps-3">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
-
-                <form method="POST" action="{{ route('password.email') }}">
-                    @csrf
-                    <div class="mb-3">
-                        <label for="email" class="form-label small fw-semibold">Email address</label>
-                        <input id="email" type="email" name="email" class="form-control form-control-sm" value="{{ old('email') }}" placeholder="name@example.com" required autofocus>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold mb-3">Send Security Code</button>
-
-                    <div class="text-center">
-                        <a href="{{ route('login') }}" class="small muted text-decoration-none">
-                            ← Back to Login
-                        </a>
-                    </div>
-                </form>
-
-                <div class="mt-4 pt-3 border-top text-center" style="border-color: var(--border) !important;">
-                    <small class="muted" style="font-size: 0.72rem;">Protected by Rate Limiting & Cryptographic Hash Validation</small>
+                <div class="eb-auth-footer text-center">
+                    <a href="{{ route('login') }}" class="text-warning text-decoration-none fw-semibold">&larr; Back to Sign In</a>
                 </div>
             </div>
         </div>

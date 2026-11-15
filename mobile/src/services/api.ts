@@ -5,20 +5,16 @@ const TOKEN_KEY = 'mybatchoy_auth_token_v1';
 const API_URL_KEY = 'mybatchoy_api_base_url_v1';
 const CACHE_TTL_MS = 8000;
 
+const PRODUCTION_API_URL = 'https://mybatchoyv2-rho.vercel.app/api/v1';
+
 function detectDefaultBaseUrl(): string {
-  // Automatically detect the PC's Wi-Fi IP from the Expo Go Metro bundler URL
-  const scriptURL: string | undefined = NativeModules?.SourceCode?.scriptURL;
-  if (scriptURL) {
-    const match = scriptURL.match(/^https?:\/\/([^/:]+)/i);
-    if (match?.[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
-      return `http://${match[1]}/Mybatchoy/public/api/v1`;
-    }
+  if (!__DEV__) {
+    return PRODUCTION_API_URL;
   }
 
-  // Fallback to current PC Wi-Fi IP (192.168.8.101)
-  return Platform.OS === 'web'
-    ? 'http://localhost/Mybatchoy/public/api/v1'
-    : 'http://192.168.8.101/Mybatchoy/public/api/v1';
+  // Default to the live Vercel cloud backend so web & mobile share the same DB anywhere.
+  // Developers can still override this anytime from the Sign In "API Server URL" field.
+  return PRODUCTION_API_URL;
 }
 
 const DEFAULT_BASE_URL = detectDefaultBaseUrl();

@@ -4,10 +4,33 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class InventoryItem extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::forget('inventory.urgent_alert_count'));
+        static::deleted(fn () => Cache::forget('inventory.urgent_alert_count'));
+    }
+
+    public static function cachedUrgentAlertCount(): int
+    {
+        $query = fn (): int => static::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('current_quantity', '<=', 0)
+                  ->orWhereColumn('current_quantity', '<=', 'minimum_stock_level');
+            })
+            ->count();
+
+        if (app()->runningUnitTests()) {
+            return $query();
+        }
+
+        return (int) Cache::remember('inventory.urgent_alert_count', 30, $query);
+    }
 
     protected $fillable = [
         'category_id',

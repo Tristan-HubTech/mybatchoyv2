@@ -11,22 +11,57 @@ use Illuminate\Validation\ValidationException;
 
 class TransactionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $query = InventoryTransaction::with(['inventoryItem', 'user'])->latest();
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:100',
+            'type' => 'nullable|in:stock_in,stock_out,adjustment,spoilage',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+        ]);
+
+        $search = trim((string) ($validated['search'] ?? ''));
+
+        $query = InventoryTransaction::with(['inventoryItem.unit', 'user', 'supplier'])
+            ->latest('transaction_date')
+            ->latest('id');
 
         if (auth()->user()?->role?->name !== 'owner') {
             $query->where('user_id', auth()->id());
         }
 
-        $transactions = $query->get();
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('reason', 'like', '%' . $search . '%')
+                    ->orWhereHas('inventoryItem', function ($itemQuery) use ($search) {
+                        $itemQuery->where('name', 'like', '%' . $search . '%')
+                            ->orWhere('sku', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        if (!empty($validated['type'])) {
+            $query->where('transaction_type', $validated['type']);
+        }
+
+        if (!empty($validated['from'])) {
+            $query->whereDate('transaction_date', '>=', $validated['from']);
+        }
+
+        if (!empty($validated['to'])) {
+            $query->whereDate('transaction_date', '<=', $validated['to']);
+        }
+
+        $transactions = $query->paginate(15)->withQueryString();
 
         return view('transactions.index', compact('transactions'));
     }
 
     public function stockInForm()
     {
-        return view('transactions.stock-in', ['items' => InventoryItem::with('unit')->get()]);
+        return view('transactions.stock-in', [
+            'items' => InventoryItem::with('unit')->where('is_active', true)->orderBy('name')->get(),
+        ]);
     }
 
     public function stockIn(Request $request)
@@ -66,12 +101,21 @@ class TransactionController extends Controller
             ]);
         });
 
-        return redirect()->route($this->redirectRoute())->with('success', 'Stock in recorded successfully.');
+        $updatedItem = InventoryItem::with('unit')->find($validated['inventory_item_id']);
+        $formattedQty = $this->formatQty((float) ($updatedItem?->current_quantity ?? 0));
+        $unit = $updatedItem?->unit?->short_name ?: 'units';
+
+        return redirect()->route($this->redirectRoute())->with(
+            'success',
+            "Stock successfully added for {$updatedItem?->name}. The new quantity is now {$formattedQty} {$unit}."
+        );
     }
 
     public function stockOutForm()
     {
-        return view('transactions.stock-out', ['items' => InventoryItem::with('unit')->get()]);
+        return view('transactions.stock-out', [
+            'items' => InventoryItem::with('unit')->where('is_active', true)->orderBy('name')->get(),
+        ]);
     }
 
     public function stockOut(Request $request)
@@ -80,13 +124,22 @@ class TransactionController extends Controller
             'inventory_item_id' => 'required|exists:inventory_items,id',
             'quantity' => 'required|numeric|min:0.01|max:999999999.999',
             'reason' => 'nullable|string|max:255',
+        ], [
+            'inventory_item_id.required' => 'Please choose an item first.',
+            'quantity.required' => 'Please enter how much stock to remove.',
+            'quantity.min' => 'Please enter an amount greater than zero.',
         ]);
 
         DB::transaction(function () use ($validated, $request) {
-            $item = InventoryItem::whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
+            $item = InventoryItem::with('unit')->whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
 
             if ($item->current_quantity < $validated['quantity']) {
-                throw ValidationException::withMessages(['quantity' => 'Insufficient stock.']);
+                $requested = $this->formatQty((float) $validated['quantity']);
+                $available = $this->formatQty((float) $item->current_quantity);
+                $unit = $item->unit?->short_name ?: 'units';
+                throw ValidationException::withMessages([
+                    'quantity' => "Cannot remove {$requested} {$unit}. Only {$available} {$unit} of {$item->name} is currently in stock.",
+                ]);
             }
 
             $previousQuantity = (float) $item->current_quantity;
@@ -116,12 +169,21 @@ class TransactionController extends Controller
             ]);
         });
 
-        return redirect()->route($this->redirectRoute())->with('success', 'Stock out recorded successfully.');
+        $updatedItem = InventoryItem::with('unit')->find($validated['inventory_item_id']);
+        $formattedQty = $this->formatQty((float) ($updatedItem?->current_quantity ?? 0));
+        $unit = $updatedItem?->unit?->short_name ?: 'units';
+
+        return redirect()->route($this->redirectRoute())->with(
+            'success',
+            "Stock successfully removed for {$updatedItem?->name}. The remaining quantity is now {$formattedQty} {$unit}."
+        );
     }
 
     public function adjustmentForm()
     {
-        return view('transactions.adjustment', ['items' => InventoryItem::with('unit')->get()]);
+        return view('transactions.adjustment', [
+            'items' => InventoryItem::with('unit')->where('is_active', true)->orderBy('name')->get(),
+        ]);
     }
 
     public function adjustment(Request $request)
@@ -130,6 +192,11 @@ class TransactionController extends Controller
             'inventory_item_id' => 'required|exists:inventory_items,id',
             'current_quantity' => 'required|numeric|min:0|max:999999999.999',
             'reason' => 'required|string|max:255',
+        ], [
+            'inventory_item_id.required' => 'Please choose an item first.',
+            'current_quantity.required' => 'Please enter the actual counted quantity.',
+            'current_quantity.min' => 'Stock quantity cannot be negative.',
+            'reason.required' => 'Please explain why the stock quantity is being corrected.',
         ]);
 
         DB::transaction(function () use ($validated, $request) {
@@ -160,12 +227,21 @@ class TransactionController extends Controller
             ]);
         });
 
-        return redirect()->route($this->redirectRoute())->with('success', 'Stock adjustment saved successfully.');
+        $updatedItem = InventoryItem::with('unit')->find($validated['inventory_item_id']);
+        $formattedQty = $this->formatQty((float) ($updatedItem?->current_quantity ?? 0));
+        $unit = $updatedItem?->unit?->short_name ?: 'units';
+
+        return redirect()->route($this->redirectRoute())->with(
+            'success',
+            "Stock quantity corrected for {$updatedItem?->name}. The new quantity is now {$formattedQty} {$unit}."
+        );
     }
 
     public function spoilageForm()
     {
-        return view('transactions.spoilage', ['items' => InventoryItem::with('unit')->get()]);
+        return view('transactions.spoilage', [
+            'items' => InventoryItem::with('unit')->where('is_active', true)->orderBy('name')->get(),
+        ]);
     }
 
     public function spoilage(Request $request)
@@ -174,13 +250,23 @@ class TransactionController extends Controller
             'inventory_item_id' => 'required|exists:inventory_items,id',
             'quantity' => 'required|numeric|min:0.01|max:999999999.999',
             'reason' => 'required|string|max:255',
+        ], [
+            'inventory_item_id.required' => 'Please choose an ingredient first.',
+            'quantity.required' => 'Please enter how much spoiled.',
+            'quantity.min' => 'Please enter an amount greater than zero.',
+            'reason.required' => 'Please explain what happened (for example: expired or damaged).',
         ]);
 
         DB::transaction(function () use ($validated, $request) {
-            $item = InventoryItem::whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
+            $item = InventoryItem::with('unit')->whereKey($validated['inventory_item_id'])->lockForUpdate()->firstOrFail();
 
             if ($item->current_quantity < $validated['quantity']) {
-                throw ValidationException::withMessages(['quantity' => 'Spoilage quantity cannot exceed current stock.']);
+                $requested = $this->formatQty((float) $validated['quantity']);
+                $available = $this->formatQty((float) $item->current_quantity);
+                $unit = $item->unit?->short_name ?: 'units';
+                throw ValidationException::withMessages([
+                    'quantity' => "Cannot record {$requested} {$unit} as spoilage. Only {$available} {$unit} of {$item->name} is currently in stock.",
+                ]);
             }
 
             $previousQuantity = (float) $item->current_quantity;
@@ -210,7 +296,21 @@ class TransactionController extends Controller
             ]);
         });
 
-        return redirect()->route($this->redirectRoute())->with('success', 'Spoilage recorded successfully.');
+        $updatedItem = InventoryItem::with('unit')->find($validated['inventory_item_id']);
+        $formattedQty = $this->formatQty((float) ($updatedItem?->current_quantity ?? 0));
+        $unit = $updatedItem?->unit?->short_name ?: 'units';
+
+        return redirect()->route($this->redirectRoute())->with(
+            'success',
+            "Spoilage recorded for {$updatedItem?->name}. The remaining quantity is now {$formattedQty} {$unit}."
+        );
+    }
+
+    private function formatQty(float $quantity): string
+    {
+        $formatted = rtrim(rtrim(number_format($quantity, 3, '.', ''), '0'), '.');
+
+        return ($formatted === '' || $formatted === '-0') ? '0' : $formatted;
     }
 
     private function redirectRoute(): string

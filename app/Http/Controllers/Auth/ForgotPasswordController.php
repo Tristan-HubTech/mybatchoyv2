@@ -172,7 +172,7 @@ class ForgotPasswordController extends Controller
             ])->save();
 
             DB::table('password_resets')->where('email', $email)->delete();
-            $user->tokens()->delete();
+            app(\App\Services\ActiveSessionManager::class)->invalidateAllForUser($user);
             AuditLog::create([
                 'user_id' => $user->id,
                 'action' => 'password_reset_completed',
