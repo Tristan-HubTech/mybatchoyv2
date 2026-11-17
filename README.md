@@ -27,16 +27,18 @@ Configure the database connection in the local environment, then create the sche
 
 ```bash
 php artisan migrate
+php artisan db:seed --class=ProductionSeeder
 php artisan app:create-owner
+php artisan app:create-system-admin
 ```
 
-The owner setup command securely prompts for account details and refuses to create another owner once one exists. It is a command-line setup process, not a public web page. `RoleSeeder` creates only the owner/staff roles. `InventorySeeder` contains sample inventory and should only be run intentionally in a non-production environment.
+The owner and system-admin setup commands securely prompt for strong 12+ character credentials and refuse to create duplicates once initialized. `ProductionSeeder` calls `RoleSeeder` and initializes baseline reference settings without creating default passwords, test users, or sample inventory. `InventorySeeder`, `OwnerSeeder`, `StaffSeeder`, and `TestDataSeeder` are development/demo-only seeders guarded against execution in `APP_ENV=production`.
 
-There is no public registration. An authenticated Owner/Admin creates staff accounts from Staff Management and chooses their initial active status. To send password-reset codes, configure Laravel mail with a real SMTP or supported provider; do not use `log`, `array`, or `failover` mail transports for recovery codes. Set `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_ENCRYPTION`, and `MAIL_FROM_ADDRESS` in the private environment configuration.
+There is no public registration. An authenticated Owner/Admin creates staff and supplier portal accounts cleanly. To send password-reset codes and Owner email MFA challenges, configure Laravel mail with a real SMTP provider; do not use `log`, `array`, or `failover` mail transports.
 
-Session cookies are HttpOnly and SameSite=Lax. Secure cookies default on in production and off in local/test environments; set `SESSION_SECURE_COOKIE=true` explicitly when deploying behind HTTPS. The default idle timeout is 20 minutes and an Owner/Admin can adjust it from Settings (5–240 minutes). Configure Laravel's trusted proxy settings correctly when terminating TLS at a reverse proxy.
+Session cookies are HttpOnly and SameSite=Lax. Secure cookies default on in production (`SESSION_SECURE_COOKIE=true`). The default idle timeout is 20 minutes and an Owner/Admin can adjust it from Settings (5–240 minutes). Configure trusted proxies appropriately when deploying behind TLS reverse proxies.
 
-Business logos are stored on Laravel's public disk. Run `php artisan storage:link` once per deployment so the stored logo can be displayed. Settings also stores default stock thresholds used when creating inventory items and supports editing/deactivating inventory categories and units. Inventory email alerts and expiration warnings are not configured; low/out-of-stock conditions remain visible on the dashboards. MFA is not implemented.
+Business logos and hosted APK distribution support configured Laravel storage disks (`MEDIA_DISK=public` and `APK_DISK=local` on persistent storage, or `MEDIA_DISK=s3` / `APK_DISK=s3` object storage plus `MOBILE_APK_URL` on serverless platforms — see `DEPLOYMENT.md`). Run `php artisan storage:link` once on persistent hosting when storing public files locally, and install `league/flysystem-aws-s3-v3` before enabling S3/R2 storage. Owner MFA supports both Authenticator TOTP (`TotpService`) and email verification codes (`OwnerMfaService`).
 
 ### Backup restore safety
 

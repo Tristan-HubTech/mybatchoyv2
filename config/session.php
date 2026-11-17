@@ -16,7 +16,7 @@ return [
 
     'connection' => env('SESSION_CONNECTION'),
 
-    'table' => 'sessions',
+    'table' => env('SESSION_TABLE', 'sessions'),
 
     'store' => env('SESSION_STORE'),
 

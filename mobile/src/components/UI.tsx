@@ -156,24 +156,58 @@ export const FilterChips: React.FC<{
   </ScrollView>
 ));
 
+export const ScreenHeader: React.FC<{
+  section: string;
+  title: string;
+  subtitle?: string;
+  rightElement?: React.ReactNode;
+}> = React.memo(({ section, title, subtitle, rightElement }) => (
+  <View style={styles.screenHeaderCard}>
+    <View style={styles.screenHeaderAccent} />
+    <View style={styles.screenHeaderInner}>
+      <View style={styles.screenHeaderTop}>
+        <View style={{ flex: 1, paddingRight: rightElement ? 10 : 0 }}>
+          <View style={styles.sectionPill}>
+            <Text style={styles.sectionPillText}>{section}</Text>
+          </View>
+          <Text style={styles.screenHeaderTitle}>{title}</Text>
+          {subtitle ? <Text style={styles.screenHeaderSub}>{subtitle}</Text> : null}
+        </View>
+        {rightElement}
+      </View>
+    </View>
+  </View>
+));
+
 export const MetricCard: React.FC<{
   label: string;
   value: string | number;
   icon: keyof typeof Ionicons.glyphMap;
   accentColor?: string;
   subtitle?: string;
-}> = React.memo(({ label, value, icon, accentColor = COLORS.primary, subtitle }) => {
+  onPress?: () => void;
+}> = React.memo(({ label, value, icon, accentColor = COLORS.primary, subtitle, onPress }) => {
   const iconFg = accentColor === COLORS.secondary || accentColor === COLORS.warning ? '#111111' : '#FFFFFF';
-  return (
-    <View style={styles.metricCard}>
+  const body = (
+    <>
       <View style={[styles.metricIconCircle, { backgroundColor: accentColor }]}>
-        <Ionicons name={icon} size={18} color={iconFg} />
+        <Ionicons name={icon} size={20} color={iconFg} />
       </View>
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
-      {subtitle ? <Text style={styles.metricSub}>{subtitle}</Text> : null}
-    </View>
+      {subtitle ? <Text style={styles.metricSub} numberOfLines={1}>{subtitle}</Text> : null}
+    </>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity style={styles.metricCard} onPress={onPress} activeOpacity={0.82}>
+        {body}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={styles.metricCard}>{body}</View>;
 });
 
 export const PrimaryButton: React.FC<{
@@ -391,25 +425,75 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: COLORS.text,
   },
-  metricCard: {
-    width: '48%',
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
+  screenHeaderCard: {
+    flexDirection: 'row',
+    backgroundColor: '#171717',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingVertical: 14,
+    borderColor: '#2E2E2E',
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  screenHeaderAccent: {
+    width: 4,
+    backgroundColor: COLORS.primary,
+  },
+  screenHeaderInner: {
+    flex: 1,
+    padding: 13,
+  },
+  screenHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(229, 57, 53, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(229, 57, 53, 0.45)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    marginBottom: 5,
+  },
+  sectionPillText: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  screenHeaderTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  screenHeaderSub: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 3,
+  },
+  metricCard: {
+    width: '48.5%',
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#2D2D2D',
+    paddingVertical: 15,
     paddingHorizontal: 10,
     marginBottom: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   metricIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 9,
   },
   metricLabel: {
     color: COLORS.textSecondary,
@@ -420,7 +504,7 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     color: COLORS.text,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     textAlign: 'center',
   },

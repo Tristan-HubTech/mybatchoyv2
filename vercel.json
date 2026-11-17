@@ -8,7 +8,7 @@
   },
   "routes": [
     {
-      "src": "/(css|js|images|fonts|favicon\\.ico)(.*)",
+      "src": "/(css|js|images|fonts|downloads|vendor|favicon\\.ico)(.*)",
       "dest": "/public/$1$2"
     },
     {
@@ -25,9 +25,11 @@
     "APP_ROUTES_CACHE": "/tmp/routes.php",
     "APP_SERVICES_CACHE": "/tmp/services.php",
     "VIEW_COMPILED_PATH": "/tmp/storage/framework/views",
-    "CACHE_DRIVER": "array",
+    "CACHE_DRIVER": "database",
+    "DB_CACHE_TABLE": "cache",
+    "DB_CACHE_LOCK_TABLE": "cache_locks",
     "LOG_CHANNEL": "stderr",
-    "SESSION_DRIVER": "cookie"
+    "SESSION_DRIVER": "database"
   }
 }
 

@@ -66,19 +66,7 @@ class InventoryItemController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category_id' => 'required|exists:inventory_categories,id',
-            'unit_id' => 'required|exists:units,id',
-            'sku' => 'nullable|string|max:100|unique:inventory_items,sku',
-            'description' => 'nullable|string|max:2000',
-            'current_quantity' => 'required|numeric|min:0|max:999999999.999',
-            'minimum_stock_level' => 'required|numeric|min:0|max:999999999.999',
-            'reorder_level' => 'nullable|numeric|min:0|max:999999999.999',
-        ]);
-
-        $validated['sku'] = $validated['sku'] ?? strtoupper(Str::slug($validated['name']) . '-' . random_int(100, 999));
-        $validated['is_active'] = true;
+        $validated = InventoryItem::validateItemRequest($request);
 
         $item = InventoryItem::create($validated);
 
@@ -114,16 +102,7 @@ class InventoryItemController extends Controller
 
     public function update(Request $request, InventoryItem $item)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category_id' => 'required|exists:inventory_categories,id',
-            'unit_id' => 'required|exists:units,id',
-            'sku' => 'nullable|string|max:100|unique:inventory_items,sku,' . $item->id,
-            'description' => 'nullable|string|max:2000',
-            'current_quantity' => 'required|numeric|min:0|max:999999999.999',
-            'minimum_stock_level' => 'required|numeric|min:0|max:999999999.999',
-            'reorder_level' => 'nullable|numeric|min:0|max:999999999.999',
-        ]);
+        $validated = InventoryItem::validateItemRequest($request, $item);
 
         $item->update($validated);
 

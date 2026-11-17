@@ -313,4 +313,54 @@ class SecurityReviewTest extends TestCase
         $this->assertArrayNotHasKey('lodash', $devDeps);
         $this->assertArrayNotHasKey('axios', $devDeps);
     }
+
+    public function test_production_cors_trust_proxies_sanctum_expiration_and_csp_are_hardened(): void
+    {
+        $this->assertNotContains('*', (array) config('cors.allowed_origins'));
+        $this->assertNotEmpty(config('cors.allowed_origins'));
+        $this->assertNotNull(config('sanctum.expiration'));
+        $this->assertGreaterThanOrEqual(5, (int) config('sanctum.expiration'));
+
+        $response = $this->get(route('login'));
+        $response->assertOk();
+        $csp = (string) $response->headers->get('Content-Security-Policy');
+        $this->assertStringContainsString("default-src 'self'", $csp);
+        $this->assertStringContainsString("object-src 'none'", $csp);
+        $this->assertStringContainsString("frame-ancestors 'self'", $csp);
+
+        // Unconfigured TrustProxies must ignore spoofed X-Forwarded-For from arbitrary clients.
+        config(['app.trusted_proxies' => null, 'app.serverless_readonly' => false]);
+        $untrusted = $this->withServerVariables([
+            'REMOTE_ADDR' => '198.51.100.10',
+            'HTTP_X_FORWARDED_FOR' => '203.0.113.55',
+        ])->get('/api/v1/health');
+        $untrusted->assertOk();
+        $this->assertSame('198.51.100.10', request()->ip());
+
+        // Configured trusted proxy IP honors X-Forwarded-For cleanly.
+        config(['app.trusted_proxies' => '198.51.100.10']);
+        $this->withServerVariables([
+            'REMOTE_ADDR' => '198.51.100.10',
+            'HTTP_X_FORWARDED_FOR' => '203.0.113.55',
+        ])->get('/api/v1/health')->assertOk();
+        $this->assertSame('203.0.113.55', request()->ip());
+
+        // Sensitive OTP/MFA fields must never be flashed back on validation errors.
+        $handler = app(\Illuminate\Contracts\Debug\ExceptionHandler::class);
+        $dontFlashProp = new \ReflectionProperty($handler, 'dontFlash');
+        $dontFlashProp->setAccessible(true);
+        $dontFlash = $dontFlashProp->getValue($handler);
+        $this->assertContains('code', $dontFlash);
+        $this->assertContains('mfa_code', $dontFlash);
+
+        $this->from(route('password.reset'))
+            ->post(route('password.update'), [
+                'email' => 'nobody@example.test',
+                'code' => '999888',
+                'password' => 'short',
+                'password_confirmation' => 'mismatch',
+            ])->assertRedirect(route('password.reset'));
+        $this->assertNull(session()->getOldInput('code'));
+        $this->assertNull(session()->getOldInput('password'));
+    }
 }

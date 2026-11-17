@@ -292,14 +292,31 @@ class MobileApiVerificationTest extends TestCase
         $this->assertSame($txCountBeforeFail, InventoryTransaction::count());
         $this->assertEquals(35.0, (float) $this->item->fresh()->current_quantity);
 
-        // Check 9: Stock Adjustment (35 -> 32)
+        // Check 9: Staff cannot run direct adjustment; must submit request for Owner approval (35 -> 32)
         $this->withToken($staffToken)->postJson('/api/v1/transactions/adjustment', [
             'inventory_item_id' => $this->item->id,
             'current_quantity' => 32,
-            'reason' => 'Physical recount',
-        ])->assertCreated()->assertJsonPath('item.current_quantity', 32);
+            'reason' => 'Direct bypass attempt',
+        ])->assertForbidden();
+        $this->assertEquals(35.0, (float) $this->item->fresh()->current_quantity);
+
+        $adjRequestRes = $this->withToken($staffToken)->postJson('/api/v1/adjustment-requests', [
+            'inventory_item_id' => $this->item->id,
+            'counted_quantity' => 32,
+            'request_type' => 'adjustment',
+            'reason' => 'Physical recount variance',
+        ])->assertCreated();
+        $this->assertEquals(35.0, (float) $this->item->fresh()->current_quantity);
+
+        $adjRequestId = $adjRequestRes->json('adjustment_request.id');
+        app('auth')->forgetGuards();
+        \Laravel\Sanctum\Sanctum::actingAs($this->owner);
+        $this->postJson("/api/v1/adjustment-requests/{$adjRequestId}/approve")
+            ->assertOk();
+        $this->assertEquals(32.0, (float) $this->item->fresh()->current_quantity);
 
         // Check 10: Spoilage (-2 -> 30)
+        app('auth')->forgetGuards();
         $this->withToken($staffToken)->postJson('/api/v1/transactions/spoilage', [
             'inventory_item_id' => $this->item->id,
             'quantity' => 2,
@@ -427,5 +444,142 @@ class MobileApiVerificationTest extends TestCase
         // Check 16b: Logout deletes the current token
         $this->apiWithToken($ownerToken)->postJson('/api/v1/auth/logout')->assertOk();
         $this->assertSame(0, PersonalAccessToken::where('tokenable_id', $this->owner->id)->count());
+    }
+
+    public function test_notifications_endpoint_returns_stock_alerts_and_scopes_spoilage_by_role(): void
+    {
+        $ownerToken = $this->owner->createToken('OwnerNotif')->plainTextToken;
+        $staffToken = $this->staff->createToken('StaffNotif')->plainTextToken;
+
+        $this->getJson('/api/v1/notifications')->assertStatus(401);
+
+        // Initially healthy item -> 0 notifications
+        $this->apiWithToken($ownerToken)->getJson('/api/v1/notifications')
+            ->assertOk()
+            ->assertJsonPath('total_count', 0)
+            ->assertJsonPath('notifications', []);
+
+        InventoryItem::create([
+            'name' => 'Soup Base Empty',
+            'sku' => 'NOTIF-OUT',
+            'category_id' => $this->category->id,
+            'unit_id' => $this->unit->id,
+            'current_quantity' => 0,
+            'minimum_stock_level' => 5,
+            'reorder_level' => 10,
+            'is_active' => true,
+        ]);
+
+        InventoryItem::create([
+            'name' => 'Chicharon Low',
+            'sku' => 'NOTIF-LOW',
+            'category_id' => $this->category->id,
+            'unit_id' => $this->unit->id,
+            'current_quantity' => 3,
+            'minimum_stock_level' => 5,
+            'reorder_level' => 10,
+            'is_active' => true,
+        ]);
+
+        InventoryItem::create([
+            'name' => 'Egg Noodles Reorder',
+            'sku' => 'NOTIF-REORDER',
+            'category_id' => $this->category->id,
+            'unit_id' => $this->unit->id,
+            'current_quantity' => 12,
+            'minimum_stock_level' => 5,
+            'reorder_level' => 15,
+            'is_active' => true,
+        ]);
+
+        InventoryTransaction::create([
+            'inventory_item_id' => $this->item->id,
+            'user_id' => $this->staff->id,
+            'transaction_type' => 'spoilage',
+            'quantity' => 2,
+            'previous_quantity' => 40,
+            'updated_quantity' => 38,
+            'reason' => 'Sour broth batch',
+            'transaction_date' => now()->subHour(),
+        ]);
+
+        InventoryTransaction::create([
+            'inventory_item_id' => $this->item->id,
+            'user_id' => $this->otherStaff->id,
+            'transaction_type' => 'spoilage',
+            'quantity' => 1,
+            'previous_quantity' => 38,
+            'updated_quantity' => 37,
+            'reason' => 'Dropped container',
+            'transaction_date' => now()->subMinutes(20),
+        ]);
+
+        // Owner sees all 3 stock problems + all 2 spoilage logs
+        $ownerRes = $this->apiWithToken($ownerToken)->getJson('/api/v1/notifications')->assertOk();
+        $ownerRes->assertJsonPath('total_count', 5)
+            ->assertJsonPath('counts.out_of_stock', 1)
+            ->assertJsonPath('counts.low_stock', 1)
+            ->assertJsonPath('counts.reorder', 1)
+            ->assertJsonPath('counts.spoilage', 2);
+
+        $ownerCategories = collect($ownerRes->json('notifications'))->pluck('category')->all();
+        $this->assertContains('out_of_stock', $ownerCategories);
+        $this->assertContains('low_stock', $ownerCategories);
+        $this->assertContains('reorder', $ownerCategories);
+        $this->assertContains('spoilage', $ownerCategories);
+
+        // Staff sees all 3 shared stock problems + only their own spoilage record
+        $staffRes = $this->apiWithToken($staffToken)->getJson('/api/v1/notifications')->assertOk();
+        $staffRes->assertJsonPath('total_count', 4)
+            ->assertJsonPath('counts.spoilage', 1);
+
+        $staffMessages = implode(' | ', collect($staffRes->json('notifications'))->pluck('message')->all());
+        $this->assertStringContainsString('Sour broth batch', $staffMessages);
+        $this->assertStringNotContainsString('Dropped container', $staffMessages);
+    }
+
+    public function test_api_health_and_direct_apk_download_without_github(): void
+    {
+        $this->getJson('/api/v1/health')
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('version', 'v1');
+
+        $existingPath = \App\Http\Controllers\AppDownloadController::resolveApkPath();
+        $backupBytes = $existingPath ? file_get_contents($existingPath) : null;
+
+        try {
+            $nonApk = \Illuminate\Http\UploadedFile::fake()->create('notes.txt', 10);
+            $this->flushSession();
+            $this->webActingAs($this->owner)
+                ->post(route('owner.settings.apk.upload'), ['apk_file' => $nonApk])
+                ->assertSessionHasErrors('apk_file');
+
+            $this->flushSession();
+            $this->webActingAs($this->staff)
+                ->post(route('owner.settings.apk.upload'), ['apk_file' => \Illuminate\Http\UploadedFile::fake()->create('app.apk', 50)])
+                ->assertForbidden();
+
+            $apkFile = \Illuminate\Http\UploadedFile::fake()->create('mybatchoy.apk', 120, 'application/vnd.android.package-archive');
+            $this->flushSession();
+            $this->webActingAs($this->owner)
+                ->post(route('owner.settings.apk.upload'), ['apk_file' => $apkFile])
+                ->assertRedirect(route('owner.settings.index') . '#mobile-app-download');
+
+            $downloadRes = $this->get(route('app.download'));
+            $downloadRes->assertOk();
+            $this->assertStringContainsString('application/vnd.android.package-archive', (string) $downloadRes->headers->get('Content-Type'));
+            $this->assertStringContainsString('attachment', (string) $downloadRes->headers->get('Content-Disposition'));
+            $this->assertStringContainsString('mybatchoy.apk', (string) $downloadRes->headers->get('Content-Disposition'));
+        } finally {
+            $publicApk = public_path('downloads/mybatchoy.apk');
+            $storageApk = storage_path('app/downloads/mybatchoy.apk');
+            if ($backupBytes !== null && $existingPath) {
+                file_put_contents($existingPath, $backupBytes);
+            } else {
+                @unlink($publicApk);
+                @unlink($storageApk);
+            }
+        }
     }
 }

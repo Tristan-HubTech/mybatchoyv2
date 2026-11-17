@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\PasswordResetCode;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Services\MailTransportGuard;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -57,9 +58,8 @@ class ForgotPasswordController extends Controller
             return $response;
         }
 
-        $transport = config('mail.mailers.' . config('mail.default') . '.transport');
-        if (in_array($transport, ['log', 'failover', 'array'], true)) {
-            Log::warning('Password recovery email not sent because the configured mail transport may log message contents.');
+        if (!MailTransportGuard::isSafeForOtp()) {
+            Log::warning('Password recovery email not sent because the configured mail transport does not support secure live delivery.');
 
             return $response;
         }

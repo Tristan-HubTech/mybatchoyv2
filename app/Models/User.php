@@ -14,6 +14,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'role_id',
+        'supplier_id',
         'name',
         'username',
         'email',
@@ -45,6 +46,11 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
+    }
+
     public function activeSession()
     {
         return $this->hasOne(UserActiveSession::class);
@@ -55,13 +61,47 @@ class User extends Authenticatable
         return $this->hasMany(AuditLog::class);
     }
 
+    public function roleName(): ?string
+    {
+        if ($this->relationLoaded('role')) {
+            return $this->role?->name;
+        }
+
+        return Role::cachedNameById($this->role_id);
+    }
+
+    public function isSystemAdmin(): bool
+    {
+        return $this->roleName() === 'system_admin';
+    }
+
     public function isOwner(): bool
     {
-        return $this->role?->name === 'owner';
+        return $this->roleName() === 'owner';
     }
 
     public function isStaff(): bool
     {
-        return $this->role?->name === 'staff';
+        return $this->roleName() === 'staff';
+    }
+
+    public function isSupplier(): bool
+    {
+        return $this->roleName() === 'supplier';
+    }
+
+    public function dashboardRouteName(): string
+    {
+        return match ($this->roleName()) {
+            'system_admin' => 'sysadmin.dashboard',
+            'owner' => 'owner.dashboard',
+            'supplier' => 'supplier.dashboard',
+            default => 'staff.dashboard',
+        };
+    }
+
+    public function hasPermissionGroup(string $group): bool
+    {
+        return \App\Services\PermissionService::allows($this, $group);
     }
 }

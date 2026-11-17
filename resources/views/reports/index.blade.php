@@ -42,7 +42,7 @@
     </div>
 
     <!-- 4 Operational KPI Cards -->
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3 mb-4">
+    <div class="row row-cols-2 row-cols-xl-4 g-2 g-md-3 mb-4">
         <div class="col">
             <div class="eb-kpi-card" style="cursor: default;">
                 <div class="eb-kpi-circle kpi-yellow">
@@ -51,9 +51,23 @@
                 <div class="eb-kpi-body">
                     <div class="eb-kpi-label">Est. Inventory Value</div>
                     <div class="eb-kpi-value" data-counter="{{ $inventoryValue }}" data-prefix="₱" data-decimals="2">&#8369;{{ number_format($inventoryValue, 2) }}</div>
-                    <div class="eb-kpi-meta meta-up">
-                        <span>{{ $items->count() }} {{ Str::plural('item', $items->count()) }} on hand</span>
-                    </div>
+                    @if ($valuationStatus === 'complete')
+                        <div class="eb-kpi-meta meta-up">
+                            <span>{{ $valuedItemsCount }} {{ Str::plural('item', $valuedItemsCount) }} at verified purchase cost</span>
+                        </div>
+                    @elseif ($valuationStatus === 'partial')
+                        <div class="eb-kpi-meta meta-warn">
+                            <span>Partial: {{ $valuedItemsCount }} valued &middot; {{ $unknownCostItemsCount }} unknown cost excluded</span>
+                        </div>
+                    @elseif ($valuationStatus === 'unvalued')
+                        <div class="eb-kpi-meta meta-warn">
+                            <span>No verified purchase costs yet ({{ $unknownCostItemsCount }} unknown excluded)</span>
+                        </div>
+                    @else
+                        <div class="eb-kpi-meta">
+                            <span>No inventory items tracked</span>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -113,21 +127,21 @@
                         <span>Stock Health Summary</span>
                     </div>
                     <x-status-badge
-                        :variant="$lowStockItems->count() > 0 || $outOfStockItems->count() > 0 ? 'warning' : 'success'"
-                        :label="$lowStockItems->count() . ' Low • ' . $outOfStockItems->count() . ' Out'" />
+                        :variant="$lowStockCount > 0 || $outOfStockCount > 0 ? 'warning' : 'success'"
+                        :label="$lowStockCount . ' Low • ' . $outOfStockCount . ' Out'" />
                 </div>
                 <div class="eb-panel-body">
                     <div class="row g-2 mb-3">
                         <div class="col-6">
                             <div class="p-3 rounded-3" style="background: #141414; border: 1px solid #2A2A2A;">
                                 <div class="small" style="color: #BDBDBD;">Running Low</div>
-                                <div class="fs-4 fw-bold text-warning">{{ $lowStockItems->count() }}</div>
+                                <div class="fs-4 fw-bold text-warning">{{ $lowStockCount }}</div>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="p-3 rounded-3" style="background: #141414; border: 1px solid #2A2A2A;">
                                 <div class="small" style="color: #BDBDBD;">Out of Stock</div>
-                                <div class="fs-4 fw-bold text-danger">{{ $outOfStockItems->count() }}</div>
+                                <div class="fs-4 fw-bold text-danger">{{ $outOfStockCount }}</div>
                             </div>
                         </div>
                     </div>
@@ -185,7 +199,7 @@
                     <x-empty-state title="No recent purchases" description="No supplier orders matched this date range." />
                 @else
                     <div class="table-responsive">
-                        <table class="table eb-table table-hover align-middle mb-0">
+                        <table class="table eb-table eb-responsive-table table-hover align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th>Order #</th>
@@ -197,10 +211,10 @@
                             <tbody>
                                 @foreach ($recentPurchases as $po)
                                     <tr>
-                                        <td class="font-monospace small text-white fw-semibold">{{ $po->purchase_number }}</td>
-                                        <td class="small" style="color: #BDBDBD;">{{ \Carbon\Carbon::parse($po->purchase_date)->format('M d, Y') }}</td>
-                                        <td class="small text-white">{{ $po->supplier?->name ?? 'Direct' }}</td>
-                                        <td class="text-end fw-bold text-warning">&#8369;{{ number_format((float) $po->total_amount, 2) }}</td>
+                                        <td class="font-monospace small text-white fw-semibold eb-cell-primary" data-label="Order #">{{ $po->purchase_number }}</td>
+                                        <td class="small" data-label="Date" style="color: #BDBDBD;">{{ \Carbon\Carbon::parse($po->purchase_date)->format('M d, Y') }}</td>
+                                        <td class="small text-white" data-label="Supplier">{{ $po->supplier?->name ?? 'Direct' }}</td>
+                                        <td class="text-end fw-bold text-warning" data-label="Total">&#8369;{{ number_format((float) $po->total_amount, 2) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -216,7 +230,7 @@
                     <x-empty-state title="No stock movements" description="No stock additions or removals matched this date range." />
                 @else
                     <div class="table-responsive">
-                        <table class="table eb-table table-hover align-middle mb-0">
+                        <table class="table eb-table eb-responsive-table table-hover align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th>Date</th>
@@ -242,10 +256,10 @@
                                         };
                                     @endphp
                                     <tr>
-                                        <td class="small" style="color: #BDBDBD;">{{ $tx->transaction_date ? \Carbon\Carbon::parse($tx->transaction_date)->format('M d, h:i A') : '—' }}</td>
-                                        <td class="fw-semibold text-white">{{ $tx->inventoryItem?->name ?? 'Deleted Item' }}</td>
-                                        <td><x-status-badge :variant="$pillVariant" :label="$pillLabel" /></td>
-                                        <td class="text-end fw-bold text-white">{{ rtrim(rtrim(number_format((float) $tx->quantity, 2), '0'), '.') ?: '0' }}</td>
+                                        <td class="small" data-label="Date" style="color: #BDBDBD;">{{ $tx->transaction_date ? \Carbon\Carbon::parse($tx->transaction_date)->format('M d, h:i A') : '—' }}</td>
+                                        <td class="fw-semibold text-white eb-cell-primary" data-label="Item">{{ $tx->inventoryItem?->name ?? 'Deleted Item' }}</td>
+                                        <td data-label="Action"><x-status-badge :variant="$pillVariant" :label="$pillLabel" /></td>
+                                        <td class="text-end fw-bold text-white" data-label="Qty">{{ rtrim(rtrim(number_format((float) $tx->quantity, 2), '0'), '.') ?: '0' }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -266,12 +280,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('reportsFilterForm');
     if (form) {
         form.addEventListener('submit', function () {
-            const skeleton = document.getElementById('reportsSkeletonWrapper');
-            const live = document.getElementById('reportsLiveContent');
-            if (skeleton && live) {
-                skeleton.classList.remove('d-none');
-                live.style.opacity = '0.35';
-                live.style.pointerEvents = 'none';
+            if (typeof window.activatePageSkeleton === 'function') {
+                window.activatePageSkeleton('reportsSkeletonWrapper', 'reportsLiveContent');
+            } else {
+                const skeleton = document.getElementById('reportsSkeletonWrapper');
+                const live = document.getElementById('reportsLiveContent');
+                if (skeleton && live) {
+                    live.classList.add('d-none');
+                    skeleton.classList.remove('d-none');
+                }
             }
         });
     }

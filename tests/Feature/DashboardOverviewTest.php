@@ -205,8 +205,9 @@ class DashboardOverviewTest extends TestCase
         $response->assertSee(route('staff.inventory.index'));
         $response->assertSee(route('staff.transactions.stockIn'));
         $response->assertSee(route('staff.transactions.stockOut'));
-        $response->assertSee(route('staff.transactions.adjustment'));
+        $response->assertSee(route('staff.adjustments.index'));
         $response->assertSee(route('staff.transactions.spoilage'));
+        $response->assertDontSee(route('staff.transactions.adjustment'));
 
         // Staff cannot access owner-only routes
         $response->assertDontSee(route('owner.purchases.index'));

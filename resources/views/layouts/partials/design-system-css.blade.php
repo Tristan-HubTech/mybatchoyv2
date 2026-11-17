@@ -901,14 +901,160 @@ body {
 @media (max-width: 767.98px) {
     .eb-page-header {
         padding: 1rem;
+        border-radius: 12px;
+    }
+
+    .eb-page-header-top {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .eb-header-actions {
+        width: 100%;
+    }
+
+    .eb-header-actions .btn {
+        flex: 1 1 auto;
+        min-height: 40px;
+        justify-content: center;
     }
 
     .eb-page-title {
-        font-size: 1.2rem;
+        font-size: 1.22rem;
+    }
+
+    .eb-page-subtitle {
+        font-size: 0.82rem;
     }
 
     .eb-hero-title {
         font-size: 1.25rem;
+    }
+
+    .eb-hero-subtitle {
+        font-size: 0.8rem;
+    }
+
+    .eb-filter-card {
+        padding: 0.85rem;
+        border-radius: 12px;
+    }
+
+    .form-control,
+    .form-select,
+    .btn {
+        min-height: 42px;
+    }
+
+    .btn-sm {
+        min-height: 36px;
+        padding: 0.4rem 0.72rem;
+    }
+
+    .eb-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding: 0.35rem;
+    }
+
+    .eb-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .eb-tab-link {
+        flex-shrink: 0;
+        white-space: nowrap;
+        min-height: 38px;
+    }
+
+    /* Stacked Mobile Card Tables (Zero horizontal overflow on phones) */
+    .eb-responsive-table {
+        display: block;
+        width: 100%;
+    }
+
+    .eb-responsive-table thead {
+        display: none;
+    }
+
+    .eb-responsive-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        padding: 0.75rem;
+    }
+
+    .eb-responsive-table tbody tr {
+        display: block;
+        background: #141414;
+        border: 1px solid #2D2D2D;
+        border-radius: 12px;
+        padding: 0.75rem 0.85rem;
+    }
+
+    .eb-responsive-table tbody tr:hover {
+        background: #181818;
+    }
+
+    .eb-responsive-table tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.36rem 0 !important;
+        border-bottom: 1px solid #242424 !important;
+        text-align: right !important;
+        white-space: normal !important;
+        max-width: none !important;
+        font-size: 0.83rem;
+    }
+
+    .eb-responsive-table tbody td::before {
+        content: attr(data-label);
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #9E9E9E;
+        text-align: left;
+        flex-shrink: 0;
+    }
+
+    .eb-responsive-table tbody td.eb-cell-primary {
+        display: block;
+        text-align: left !important;
+        padding-top: 0.1rem !important;
+        padding-bottom: 0.5rem !important;
+        margin-bottom: 0.1rem;
+    }
+
+    .eb-responsive-table tbody td.eb-cell-primary::before {
+        display: none;
+    }
+
+    .eb-responsive-table tbody td.eb-cell-actions {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        padding-top: 0.55rem !important;
+        border-bottom: 0 !important;
+    }
+
+    .eb-responsive-table tbody td.eb-cell-actions::before {
+        display: none;
+    }
+
+    .eb-responsive-table tbody tr td:last-child {
+        border-bottom: 0 !important;
+    }
+
+    .eb-table-footer {
+        justify-content: center;
+        text-align: center;
+        padding: 0.75rem 0.9rem;
     }
 
     .eb-table thead th,

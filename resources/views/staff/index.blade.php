@@ -31,7 +31,7 @@
             </x-slot:headerActions>
 
             <div class="table-responsive">
-                <table class="table eb-table table-hover align-middle mb-0" aria-labelledby="pending-requests-title">
+                <table class="table eb-table eb-responsive-table table-hover align-middle mb-0" aria-labelledby="pending-requests-title">
                     <thead>
                         <tr>
                             <th>Full Name</th>
@@ -45,12 +45,12 @@
                     <tbody>
                         @foreach ($pendingRequests as $pending)
                             <tr>
-                                <td class="fw-bold text-white">{{ $pending->name }}</td>
-                                <td class="font-monospace small" style="color: #BDBDBD;">{{ $pending->username }}</td>
-                                <td class="small text-white">{{ $pending->email }}</td>
-                                <td class="small" style="color: #BDBDBD;">{{ $pending->phone ?: '—' }}</td>
-                                <td class="small" style="color: #BDBDBD;">{{ $pending->created_at?->format('M d, Y H:i') ?? '—' }}</td>
-                                <td class="text-end">
+                                <td class="fw-bold text-white eb-cell-primary" data-label="Full Name">{{ $pending->name }}</td>
+                                <td class="font-monospace small" data-label="Username" style="color: #BDBDBD;">{{ $pending->username }}</td>
+                                <td class="small text-white" data-label="Email">{{ $pending->email }}</td>
+                                <td class="small" data-label="Phone" style="color: #BDBDBD;">{{ $pending->phone ?: '—' }}</td>
+                                <td class="small" data-label="Requested" style="color: #BDBDBD;">{{ $pending->created_at?->format('M d, Y H:i') ?? '—' }}</td>
+                                <td class="text-end eb-cell-actions">
                                     <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
                                         <form method="POST"
                                               action="{{ route('owner.staff.approve', $pending) }}"
@@ -120,7 +120,7 @@
                 :actionLabel="request()->filled('search') || request()->filled('status') ? 'Clear Filters' : '+ Add Staff Account'" />
         @else
             <div class="table-responsive">
-                <table class="table eb-table table-hover align-middle mb-0">
+                <table class="table eb-table eb-responsive-table table-hover align-middle mb-0">
                     <thead>
                         <tr>
                             <th>Full Name</th>
@@ -134,16 +134,16 @@
                     <tbody>
                         @foreach ($staff as $member)
                             <tr>
-                                <td class="fw-bold text-white">{{ $member->name }}</td>
-                                <td class="font-monospace small" style="color: #BDBDBD;">{{ $member->username }}</td>
-                                <td class="small text-white">{{ $member->email }}</td>
-                                <td>
+                                <td class="fw-bold text-white eb-cell-primary" data-label="Name">{{ $member->name }}</td>
+                                <td class="font-monospace small" data-label="Username" style="color: #BDBDBD;">{{ $member->username }}</td>
+                                <td class="small text-white" data-label="Email">{{ $member->email }}</td>
+                                <td data-label="Status">
                                     <x-status-badge
                                         :variant="$member->is_active ? 'success' : 'neutral'"
                                         :label="$member->is_active ? 'Active' : 'Inactive'" />
                                 </td>
-                                <td class="small" style="color: #BDBDBD;">{{ $member->created_at?->format('M d, Y') ?? '—' }}</td>
-                                <td class="text-end">
+                                <td class="small" data-label="Created" style="color: #BDBDBD;">{{ $member->created_at?->format('M d, Y') ?? '—' }}</td>
+                                <td class="text-end eb-cell-actions">
                                     <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
                                         <a href="{{ route('owner.staff.edit', $member) }}" class="btn btn-sm btn-outline-primary">Edit</a>
                                         <form method="POST"
@@ -185,12 +185,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('staffFilterForm');
     if (form) {
         form.addEventListener('submit', function () {
-            const skeleton = document.getElementById('staffSkeletonWrapper');
-            const live = document.getElementById('staffLiveContent');
-            if (skeleton && live) {
-                skeleton.classList.remove('d-none');
-                live.style.opacity = '0.35';
-                live.style.pointerEvents = 'none';
+            if (typeof window.activatePageSkeleton === 'function') {
+                window.activatePageSkeleton('staffSkeletonWrapper', 'staffLiveContent');
+            } else {
+                const skeleton = document.getElementById('staffSkeletonWrapper');
+                const live = document.getElementById('staffLiveContent');
+                if (skeleton && live) {
+                    live.classList.add('d-none');
+                    skeleton.classList.remove('d-none');
+                }
             }
         });
     }

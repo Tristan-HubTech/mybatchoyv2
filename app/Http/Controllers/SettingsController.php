@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\UserActiveSession;
 use App\Services\ActiveSessionManager;
 use App\Services\OwnerMfaService;
+use App\Services\PersistentStorage;
 use App\Services\TotpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +36,7 @@ class SettingsController extends Controller
 
         $sessions->pruneExpiredSessions();
         $activeSessions = UserActiveSession::with('user.role')
-            ->whereHas('user')
+            ->whereHas('user.role', fn ($q) => $q->where('name', '!=', 'system_admin'))
             ->orderByDesc('last_activity_at')
             ->get()
             ->map(function (UserActiveSession $record) use ($request): array {
@@ -182,6 +183,8 @@ class SettingsController extends Controller
 
     public function revokeActiveSession(Request $request, User $user, ActiveSessionManager $sessions, OwnerMfaService $mfa)
     {
+        abort_if($user->isSystemAdmin(), 403, 'Owners cannot view or revoke System Admin sessions.');
+
         $validated = $request->validate([
             'current_password' => 'required|string',
             'mfa_code' => 'required|digits:6',
@@ -329,9 +332,19 @@ class SettingsController extends Controller
         $settings = BusinessSetting::firstOrNew(['id' => 1]);
         $previousLogo = $settings->logo_path;
         $newLogo = null;
+        $mediaDisk = PersistentStorage::mediaDisk();
 
         if ($request->hasFile('logo')) {
-            $newLogo = $request->file('logo')->storePublicly('business-logos', 'public');
+            $storageError = PersistentStorage::assertWritableDisk($mediaDisk, 'Business logo');
+            if ($storageError !== null) {
+                return back()->withInput()->withErrors([
+                    'logo' => $storageError,
+                ]);
+            }
+
+            $newLogo = $mediaDisk === 'public'
+                ? $request->file('logo')->storePublicly('business-logos', $mediaDisk)
+                : $request->file('logo')->store('business-logos', $mediaDisk);
             if ($newLogo === false) {
                 throw new RuntimeException('The business logo could not be stored.');
             }
@@ -361,14 +374,20 @@ class SettingsController extends Controller
             });
         } catch (Throwable $exception) {
             if ($newLogo !== null) {
-                Storage::disk('public')->delete($newLogo);
+                try {
+                    Storage::disk($mediaDisk)->delete($newLogo);
+                } catch (Throwable) {
+                }
             }
 
             throw $exception;
         }
 
-        if ($newLogo !== null && $previousLogo !== null) {
-            Storage::disk('public')->delete($previousLogo);
+        if ($newLogo !== null && $previousLogo !== null && $previousLogo !== $newLogo) {
+            try {
+                Storage::disk($mediaDisk)->delete($previousLogo);
+            } catch (Throwable) {
+            }
         }
 
         return redirect()->route('owner.settings.index')->with('success', 'Settings saved.');

@@ -27,7 +27,11 @@
         <a href="{{ route($routePrefix . '.transactions.index') }}" class="eb-tab-link active">Stock History</a>
         <a href="{{ route($routePrefix . '.transactions.stockIn') }}" class="eb-tab-link">+ Add Stock</a>
         <a href="{{ route($routePrefix . '.transactions.stockOut') }}" class="eb-tab-link">- Remove Stock</a>
-        <a href="{{ route($routePrefix . '.transactions.adjustment') }}" class="eb-tab-link">Correct Stock Quantity</a>
+        @if ($routePrefix === 'owner')
+            <a href="{{ route('owner.transactions.adjustment') }}" class="eb-tab-link">Correct Stock Quantity</a>
+        @else
+            <a href="{{ route('staff.adjustments.index') }}" class="eb-tab-link">Request Stock Adjustment</a>
+        @endif
         <a href="{{ route($routePrefix . '.transactions.spoilage') }}" class="eb-tab-link">Record Spoilage</a>
     </div>
 
@@ -79,7 +83,7 @@
                 :actionLabel="request()->filled('search') || request()->filled('type') || request()->filled('from') || request()->filled('to') ? 'Clear Filters' : '+ Add Stock'" />
         @else
             <div class="table-responsive">
-                <table class="table eb-table table-hover align-middle">
+                <table class="table eb-table eb-responsive-table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Date &amp; Time</th>
@@ -117,31 +121,31 @@
                                 $afterNum = rtrim(rtrim(number_format((float) $transaction->updated_quantity, 3), '0'), '.') ?: '0';
                             @endphp
                             <tr>
-                                <td class="text-nowrap">
+                                <td class="text-nowrap" data-label="Date &amp; Time">
                                     <span class="d-block text-white fw-semibold">{{ $transaction->transaction_date ? $transaction->transaction_date->format('M d, Y') : '—' }}</span>
                                     <small style="color: #BDBDBD;">{{ $transaction->transaction_date ? $transaction->transaction_date->format('h:i A') : '' }}</small>
                                 </td>
-                                <td>
+                                <td class="eb-cell-primary" data-label="Item">
                                     <div class="fw-bold text-white">{{ $transaction->inventoryItem?->name ?? 'Deleted Item' }}</div>
                                     @if ($transaction->inventoryItem?->sku)
                                         <div class="small" style="color: #BDBDBD; font-size: 0.74rem;">{{ $transaction->inventoryItem->sku }}</div>
                                     @endif
                                 </td>
-                                <td>
+                                <td data-label="Action">
                                     <x-status-badge :variant="$badgeVariant" :label="$label" />
                                 </td>
-                                <td class="fw-bold {{ $isIn ? 'text-success' : ($isOut ? 'text-danger' : 'text-warning') }}">
+                                <td class="fw-bold {{ $isIn ? 'text-success' : ($isOut ? 'text-danger' : 'text-warning') }}" data-label="Quantity">
                                     {{ $isIn ? '+' : ($isOut ? '-' : '') }}{{ $qtyNum }} {{ $unit }}
                                 </td>
-                                <td class="text-nowrap small" style="color: #BDBDBD;">
+                                <td class="text-nowrap small" data-label="Before -> After" style="color: #BDBDBD;">
                                     <span>{{ $prevNum }}</span>
                                     <span class="mx-1">&rarr;</span>
                                     <strong class="text-white">{{ $afterNum }} {{ $unit }}</strong>
                                 </td>
-                                <td class="small" style="color: #BDBDBD; max-width: 240px;">
+                                <td class="small" data-label="Note" style="color: #BDBDBD; max-width: 240px;">
                                     {{ $transaction->reason ?: 'No notes added' }}
                                 </td>
-                                <td class="small text-white">{{ $transaction->user?->name ?? 'System' }}</td>
+                                <td class="small text-white" data-label="Recorded By">{{ $transaction->user?->name ?? 'System' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -165,12 +169,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('transactionsFilterForm');
     if (form) {
         form.addEventListener('submit', function () {
-            const skeleton = document.getElementById('transactionsSkeletonWrapper');
-            const live = document.getElementById('transactionsLiveContent');
-            if (skeleton && live) {
-                skeleton.classList.remove('d-none');
-                live.style.opacity = '0.35';
-                live.style.pointerEvents = 'none';
+            if (typeof window.activatePageSkeleton === 'function') {
+                window.activatePageSkeleton('transactionsSkeletonWrapper', 'transactionsLiveContent');
+            } else {
+                const skeleton = document.getElementById('transactionsSkeletonWrapper');
+                const live = document.getElementById('transactionsLiveContent');
+                if (skeleton && live) {
+                    live.classList.add('d-none');
+                    skeleton.classList.remove('d-none');
+                }
             }
         });
     }

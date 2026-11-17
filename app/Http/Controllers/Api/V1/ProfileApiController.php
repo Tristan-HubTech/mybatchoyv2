@@ -78,14 +78,7 @@ class ProfileApiController extends Controller
 
             DB::table('password_resets')->where('email', $user->email)->delete();
 
-            if ($currentTokenId) {
-                $user->tokens()->where('id', '!=', $currentTokenId)->delete();
-                \App\Models\UserActiveSession::where('user_id', $user->id)
-                    ->where('session_hash', '!=', app(\App\Services\ActiveSessionManager::class)->hashApiTokenId($currentTokenId))
-                    ->delete();
-            } else {
-                app(\App\Services\ActiveSessionManager::class)->invalidateAllForUser($user);
-            }
+            app(\App\Services\ActiveSessionManager::class)->invalidateOtherSessionsExceptApiToken($user, $currentTokenId);
 
             $this->recordProfileEvent($request, $user, 'profile_password_changed', 'Account password changed by the account owner.');
         });

@@ -19,18 +19,32 @@ import {
   FilterChips,
   FormField,
   PrimaryButton,
+  ScreenHeader,
   SearchBar,
   SkeletonList,
   StatusBadge,
 } from '../components/UI';
+
+export interface StaffLaunchRequest {
+  section: 'staff' | 'audit';
+  nonce: number;
+}
 
 const SECTION_TABS = [
   { key: 'staff', label: 'Staff Accounts' },
   { key: 'audit', label: 'Activity History' },
 ];
 
-export const StaffAuditScreen: React.FC = () => {
+export const StaffAuditScreen: React.FC<{
+  launchRequest?: StaffLaunchRequest | null;
+}> = ({ launchRequest }) => {
   const [section, setSection] = useState<'staff' | 'audit'>('staff');
+
+  useEffect(() => {
+    if (!launchRequest) return;
+    setSection(launchRequest.section);
+    setError(null);
+  }, [launchRequest]);
   const [staffList, setStaffList] = useState<UserProfile[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogModel[]>([]);
 
@@ -210,6 +224,16 @@ export const StaffAuditScreen: React.FC = () => {
           />
         }
       >
+        <ScreenHeader
+          section="Administration"
+          title={section === 'staff' ? 'Staff Management' : 'Audit Logs'}
+          subtitle={
+            section === 'staff'
+              ? 'Manage staff access, reset passwords, and add new team accounts.'
+              : 'Read-only trail of stock changes, purchases, and security actions.'
+          }
+        />
+
         <FilterChips
           options={SECTION_TABS}
           selected={section}

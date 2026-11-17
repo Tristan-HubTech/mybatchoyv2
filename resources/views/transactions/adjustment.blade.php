@@ -27,6 +27,13 @@
 
 <x-alert-banner />
 
+@if ($routePrefix === 'staff')
+    <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4" style="background: rgba(255, 193, 7, 0.1); border-color: rgba(255, 193, 7, 0.35); color: #FFE082;">
+        <span>Submitting a formal stock count variance for Owner sign-off?</span>
+        <a href="{{ route('staff.adjustments.index') }}" class="btn btn-sm btn-warning text-dark fw-semibold">Open Count &amp; Adjust Requests &rarr;</a>
+    </div>
+@endif
+
 <div class="row">
     <div class="col-xl-9">
         <div class="eb-panel-card">

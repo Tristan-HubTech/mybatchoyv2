@@ -1,4 +1,4 @@
-export type UserRole = 'owner' | 'staff';
+export type UserRole = 'system_admin' | 'owner' | 'staff' | 'supplier';
 
 export interface UserProfile {
   id: number;
@@ -8,6 +8,9 @@ export interface UserProfile {
   phone: string | null;
   role: UserRole;
   role_label: string;
+  supplier_id?: number | null;
+  supplier_name?: string | null;
+  permission_groups?: string[];
   is_active: boolean;
   mfa_enabled: boolean;
   last_login_at: string | null;
@@ -129,4 +132,36 @@ export interface AuditLogModel {
   ip_address: string | null;
   created_at: string | null;
 }
+
+export type NotificationCategory = 'out_of_stock' | 'low_stock' | 'reorder' | 'spoilage';
+export type NotificationSeverity = 'danger' | 'warning' | 'info' | 'spoilage';
+export type NotificationActionType = 'stock_in' | 'spoilage_history';
+
+export interface StockNotificationItem {
+  id: string;
+  category: NotificationCategory;
+  severity: NotificationSeverity;
+  badge: string;
+  title: string;
+  message: string;
+  item_id: number | null;
+  transaction_id: number | null;
+  action_type: NotificationActionType;
+  time_ago: string | null;
+  created_at: string | null;
+}
+
+export interface StockNotificationCounts {
+  out_of_stock: number;
+  low_stock: number;
+  reorder: number;
+  spoilage: number;
+}
+
+export interface StockNotificationResponse {
+  total_count: number;
+  counts: StockNotificationCounts;
+  notifications: StockNotificationItem[];
+}
+
 

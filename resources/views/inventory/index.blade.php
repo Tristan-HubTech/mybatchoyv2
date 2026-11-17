@@ -79,7 +79,7 @@
                 :actionLabel="request()->filled('search') || request()->filled('category') || request()->filled('status') ? 'Clear Filters' : ($isOwnerUser ? '+ Add New Item' : null)" />
         @else
             <div class="table-responsive">
-                <table class="table eb-table table-hover align-middle inventory-table" aria-label="Inventory table">
+                <table class="table eb-table eb-responsive-table table-hover align-middle inventory-table" aria-label="Inventory table">
                     <thead>
                         <tr>
                             <th>Item Name</th>
@@ -100,27 +100,27 @@
                                 $editUrl = $isOwnerUser ? route('owner.inventory.edit', $item) : '';
                             @endphp
                             <tr>
-                                <td>
+                                <td class="eb-cell-primary" data-label="Item">
                                     <div class="fw-bold text-white">{{ $item->name }}</div>
                                     @if ($item->description)
                                         <div class="small" style="color: #BDBDBD; font-size: 0.76rem;">{{ Str::limit($item->description, 60) }}</div>
                                     @endif
                                 </td>
-                                <td class="small" style="color: #BDBDBD;">{{ $item->sku ?: '—' }}</td>
-                                <td>
+                                <td class="small" data-label="Code" style="color: #BDBDBD;">{{ $item->sku ?: '—' }}</td>
+                                <td data-label="Current Stock">
                                     <span class="fw-bold {{ $item->isOutOfStock() ? 'text-danger' : ($item->isLowStock() ? 'text-warning' : 'text-white') }}">
                                         {{ rtrim(rtrim(number_format((float) $item->current_quantity, 3), '0'), '.') ?: '0' }}
                                     </span>
                                     <span class="small" style="color: #BDBDBD;">{{ $unitShort }}</span>
                                 </td>
-                                <td class="small" style="color: #BDBDBD;">
+                                <td class="small" data-label="Min Level" style="color: #BDBDBD;">
                                     {{ rtrim(rtrim(number_format((float) $item->minimum_stock_level, 3), '0'), '.') ?: '0' }} {{ $unitShort }}
                                 </td>
-                                <td>
+                                <td data-label="Status">
                                     <x-status-badge :variant="$statusVariant" :label="$item->status" />
                                 </td>
-                                <td class="small" style="color: #BDBDBD;">{{ $item->category?->name ?? 'Uncategorized' }}</td>
-                                <td class="text-end">
+                                <td class="small" data-label="Category" style="color: #BDBDBD;">{{ $item->category?->name ?? 'Uncategorized' }}</td>
+                                <td class="text-end eb-cell-actions">
                                     <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
                                         <button type="button"
                                             class="btn btn-sm btn-outline-light item-details-btn"
@@ -226,12 +226,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('inventoryFilterForm');
     if (form) {
         form.addEventListener('submit', function () {
-            const skeleton = document.getElementById('inventorySkeletonWrapper');
-            const live = document.getElementById('inventoryLiveContent');
-            if (skeleton && live) {
-                skeleton.classList.remove('d-none');
-                live.style.opacity = '0.35';
-                live.style.pointerEvents = 'none';
+            if (typeof window.activatePageSkeleton === 'function') {
+                window.activatePageSkeleton('inventorySkeletonWrapper', 'inventoryLiveContent');
+            } else {
+                const skeleton = document.getElementById('inventorySkeletonWrapper');
+                const live = document.getElementById('inventoryLiveContent');
+                if (skeleton && live) {
+                    live.classList.add('d-none');
+                    skeleton.classList.remove('d-none');
+                }
             }
         });
     }

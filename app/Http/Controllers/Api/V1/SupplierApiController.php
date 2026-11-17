@@ -17,7 +17,9 @@ class SupplierApiController extends Controller
             'search' => 'nullable|string|max:100',
         ]);
 
-        $suppliers = Supplier::withCount('purchases');
+        $suppliers = Supplier::query()
+            ->withCount(['purchases as purchases_count' => fn ($q) => $q->realized()])
+            ->withSum(['purchases as total_spent' => fn ($q) => $q->realized()], 'total_amount');
 
         if (!empty($validated['search'])) {
             $search = trim($validated['search']);
@@ -36,7 +38,8 @@ class SupplierApiController extends Controller
 
     public function show(Supplier $supplier): JsonResponse
     {
-        $supplier->loadCount('purchases');
+        $supplier->loadCount(['purchases as purchases_count' => fn ($q) => $q->realized()]);
+        $supplier->loadSum(['purchases as total_spent' => fn ($q) => $q->realized()], 'total_amount');
         $purchases = Purchase::with(['creator', 'items.inventoryItem.unit'])
             ->where('supplier_id', $supplier->id)
             ->latest('purchase_date')
@@ -106,7 +109,11 @@ class SupplierApiController extends Controller
 
         return response()->json([
             'message' => 'Supplier updated successfully.',
-            'supplier' => self::formatSupplier($supplier->fresh()->loadCount('purchases')),
+            'supplier' => self::formatSupplier(
+                $supplier->fresh()
+                    ->loadCount(['purchases as purchases_count' => fn ($q) => $q->realized()])
+                    ->loadSum(['purchases as total_spent' => fn ($q) => $q->realized()], 'total_amount')
+            ),
         ]);
     }
 
@@ -122,6 +129,7 @@ class SupplierApiController extends Controller
             'notes' => $supplier->notes,
             'is_active' => (bool) $supplier->is_active,
             'purchases_count' => (int) ($supplier->purchases_count ?? 0),
+            'total_spent' => round((float) ($supplier->total_spent ?? 0), 2),
             'created_at' => $supplier->created_at?->toIso8601String(),
         ];
     }

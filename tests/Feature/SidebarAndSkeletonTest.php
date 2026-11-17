@@ -168,5 +168,17 @@ class SidebarAndSkeletonTest extends TestCase
         $audit = $this->actingAs($this->owner)->get(route('owner.audit.index'));
         $audit->assertOk();
         $audit->assertSee('id="auditSkeletonWrapper"', false);
+
+        foreach ([$tx, $sup, $pur, $rep, $staffMgmt, $audit] as $pageResponse) {
+            $pageResponse->assertDontSee("live.style.opacity = '0.35'", false);
+            $pageResponse->assertSee('window.activatePageSkeleton', false);
+            $pageResponse->assertSee('resetPageSkeletons', false);
+        }
+
+        $inventory = $this->actingAs($this->owner)->get(route('owner.inventory.index'));
+        $inventory->assertOk();
+        $inventory->assertDontSee("live.style.opacity = '0.35'", false);
+        $inventory->assertSee('window.activatePageSkeleton', false);
+        $inventory->assertSee('resetPageSkeletons', false);
     }
 }

@@ -2,12 +2,28 @@
 
 namespace App\Models;
 
+use App\Services\StockNotificationService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class InventoryTransaction extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::saved(function (self $transaction): void {
+            if ($transaction->transaction_type === 'spoilage' || $transaction->getOriginal('transaction_type') === 'spoilage') {
+                StockNotificationService::clearSpoilageCache($transaction->user_id ? (int) $transaction->user_id : null);
+            }
+        });
+
+        static::deleted(function (self $transaction): void {
+            if ($transaction->transaction_type === 'spoilage') {
+                StockNotificationService::clearSpoilageCache($transaction->user_id ? (int) $transaction->user_id : null);
+            }
+        });
+    }
 
     protected $fillable = [
         'inventory_item_id',

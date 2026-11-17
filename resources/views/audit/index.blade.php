@@ -49,7 +49,7 @@
                 actionLabel="Clear Filters" />
         @else
             <div class="table-responsive">
-                <table class="table eb-table table-hover align-middle mb-0">
+                <table class="table eb-table eb-responsive-table table-hover align-middle mb-0">
                     <thead>
                         <tr>
                             <th>Timestamp</th>
@@ -62,18 +62,18 @@
                     <tbody>
                         @foreach ($logs as $log)
                             <tr>
-                                <td class="text-nowrap small" style="color: #BDBDBD;">
+                                <td class="text-nowrap small eb-cell-primary" data-label="Timestamp" style="color: #BDBDBD;">
                                     <span class="d-block text-white fw-semibold">{{ $log->created_at->format('M d, Y') }}</span>
                                     <span>{{ $log->created_at->format('h:i A') }}</span>
                                 </td>
-                                <td class="fw-semibold text-white">{{ $log->user?->name ?? 'System' }}</td>
-                                <td>
+                                <td class="fw-semibold text-white" data-label="Performed By">{{ $log->user?->name ?? 'System' }}</td>
+                                <td data-label="Action">
                                     <x-status-badge variant="neutral" :label="str_replace('_', ' ', $log->action)" />
                                 </td>
-                                <td class="small font-monospace" style="color: #BDBDBD;">
+                                <td class="small font-monospace" data-label="Record" style="color: #BDBDBD;">
                                     {{ $log->model_type ? class_basename($log->model_type) : '—' }}{{ $log->model_id ? ' #' . $log->model_id : '' }}
                                 </td>
-                                <td class="small" style="color: #BDBDBD; max-width: 380px;">{{ $log->details ?? '—' }}</td>
+                                <td class="small" data-label="Details" style="color: #BDBDBD; max-width: 380px;">{{ $log->details ?? '—' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -97,12 +97,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('auditFilterForm');
     if (form) {
         form.addEventListener('submit', function () {
-            const skeleton = document.getElementById('auditSkeletonWrapper');
-            const live = document.getElementById('auditLiveContent');
-            if (skeleton && live) {
-                skeleton.classList.remove('d-none');
-                live.style.opacity = '0.35';
-                live.style.pointerEvents = 'none';
+            if (typeof window.activatePageSkeleton === 'function') {
+                window.activatePageSkeleton('auditSkeletonWrapper', 'auditLiveContent');
+            } else {
+                const skeleton = document.getElementById('auditSkeletonWrapper');
+                const live = document.getElementById('auditLiveContent');
+                if (skeleton && live) {
+                    live.classList.add('d-none');
+                    skeleton.classList.remove('d-none');
+                }
             }
         });
     }

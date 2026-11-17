@@ -135,10 +135,14 @@ class DesignConsistencyTest extends TestCase
             route('staff.transactions.index'),
             route('staff.transactions.stockIn'),
             route('staff.transactions.stockOut'),
-            route('staff.transactions.adjustment'),
+            route('staff.adjustments.index'),
             route('staff.transactions.spoilage'),
             route('profile.show'),
         ];
+
+        $this->actingAs($this->staff)
+            ->get(route('staff.transactions.adjustment'))
+            ->assertForbidden();
 
         foreach ($staffUrls as $url) {
             $response = $this->actingAs($this->staff)->get($url);
@@ -221,15 +225,24 @@ class DesignConsistencyTest extends TestCase
 
         $lowResponse = $this->actingAs($this->owner)->get(route('owner.inventory.index', ['status' => 'low_stock']));
         $lowResponse->assertOk()
-            ->assertSee('Pork Liver Low')
-            ->assertDontSee('Beef Marrow Healthy')
-            ->assertDontSee('Chicharon Depleted')
+            ->assertSee('LIVER-LOW')
+            ->assertDontSee('BEEF-OK')
+            ->assertDontSee('CHICHA-OUT')
             ->assertSee('itemDetailModal');
+        preg_match('/<main\b.*?<\/main>/is', (string) $lowResponse->getContent(), $lowMain);
+        $this->assertNotEmpty($lowMain[0] ?? '');
+        $this->assertStringContainsString('Pork Liver Low', $lowMain[0]);
+        $this->assertStringNotContainsString('Beef Marrow Healthy', $lowMain[0]);
+        $this->assertStringNotContainsString('Chicharon Depleted', $lowMain[0]);
 
         $outResponse = $this->actingAs($this->owner)->get(route('owner.inventory.index', ['status' => 'out_of_stock']));
         $outResponse->assertOk()
-            ->assertSee('Chicharon Depleted')
-            ->assertDontSee('Pork Liver Low');
+            ->assertSee('CHICHA-OUT')
+            ->assertDontSee('LIVER-LOW');
+        preg_match('/<main\b.*?<\/main>/is', (string) $outResponse->getContent(), $outMain);
+        $this->assertNotEmpty($outMain[0] ?? '');
+        $this->assertStringContainsString('Chicharon Depleted', $outMain[0]);
+        $this->assertStringNotContainsString('Pork Liver Low', $outMain[0]);
 
         $paginatedResponse = $this->actingAs($this->owner)->get(route('owner.inventory.index'));
         $paginatedResponse->assertOk()
@@ -396,6 +409,198 @@ class DesignConsistencyTest extends TestCase
                 (string) $pageResponse->getContent()
             );
         }
+    }
+
+    public function test_topbar_notification_box_displays_stock_and_spoilage_alerts_and_healthy_empty_state(): void
+    {
+        $healthyResponse = $this->actingAs($this->owner)->get(route('owner.dashboard'));
+        $healthyResponse->assertOk()
+            ->assertSee('notificationsBellBtn', false)
+            ->assertSee('eb-notif-dropdown', false)
+            ->assertSee('All stock levels look good')
+            ->assertSee('No active stock issues')
+            ->assertDontSee('notificationsBellBadge', false);
+
+        $outItem = InventoryItem::create([
+            'name' => 'Pork Bones Empty',
+            'sku' => 'NB-OUT',
+            'category_id' => $this->category->id,
+            'unit_id' => $this->unit->id,
+            'current_quantity' => 0,
+            'minimum_stock_level' => 5,
+            'reorder_level' => 10,
+            'is_active' => true,
+        ]);
+
+        InventoryItem::create([
+            'name' => 'Scallions Low',
+            'sku' => 'NB-LOW',
+            'category_id' => $this->category->id,
+            'unit_id' => $this->unit->id,
+            'current_quantity' => 3,
+            'minimum_stock_level' => 5,
+            'reorder_level' => 10,
+            'is_active' => true,
+        ]);
+
+        InventoryItem::create([
+            'name' => 'Garlic Reorder',
+            'sku' => 'NB-REO',
+            'category_id' => $this->category->id,
+            'unit_id' => $this->unit->id,
+            'current_quantity' => 8,
+            'minimum_stock_level' => 5,
+            'reorder_level' => 10,
+            'is_active' => true,
+        ]);
+
+        InventoryItem::create([
+            'name' => 'Inactive Should Hide',
+            'sku' => 'NB-INACT',
+            'category_id' => $this->category->id,
+            'unit_id' => $this->unit->id,
+            'current_quantity' => 0,
+            'minimum_stock_level' => 5,
+            'reorder_level' => 10,
+            'is_active' => false,
+        ]);
+
+        $healthyItem = InventoryItem::create([
+            'name' => 'Fresh Batchoy Stock',
+            'sku' => 'NB-OK',
+            'category_id' => $this->category->id,
+            'unit_id' => $this->unit->id,
+            'current_quantity' => 50,
+            'minimum_stock_level' => 5,
+            'reorder_level' => 10,
+            'is_active' => true,
+        ]);
+
+        InventoryTransaction::create([
+            'inventory_item_id' => $healthyItem->id,
+            'user_id' => $this->staff->id,
+            'transaction_type' => 'spoilage',
+            'quantity' => 3,
+            'previous_quantity' => 53,
+            'updated_quantity' => 50,
+            'reason' => 'Expired pack',
+            'transaction_date' => now()->subHours(2),
+        ]);
+
+        InventoryTransaction::create([
+            'inventory_item_id' => $healthyItem->id,
+            'user_id' => $this->otherStaff->id,
+            'transaction_type' => 'spoilage',
+            'quantity' => 1,
+            'previous_quantity' => 50,
+            'updated_quantity' => 49,
+            'reason' => 'Other staff spill',
+            'transaction_date' => now()->subMinutes(30),
+        ]);
+
+        $ownerAlerts = $this->actingAs($this->owner)->get(route('owner.dashboard'));
+        $ownerAlerts->assertOk()
+            ->assertSee('notificationsBellBadge', false)
+            ->assertSee('5 alerts need attention')
+            ->assertSee('Pork Bones Empty is out of stock')
+            ->assertSee('Scallions Low is running low')
+            ->assertSee('Time to reorder Garlic Reorder')
+            ->assertSee('Spoilage recorded for Fresh Batchoy Stock')
+            ->assertSee('Expired pack')
+            ->assertSee('Other staff spill')
+            ->assertSee(route('owner.transactions.stockIn', ['item' => $outItem->id]), false)
+            ->assertSee(route('owner.transactions.index', ['type' => 'spoilage']), false)
+            ->assertDontSee('Inactive Should Hide');
+
+        $staffAlerts = $this->actingAs($this->staff)->get(route('staff.dashboard'));
+        $staffAlerts->assertOk()
+            ->assertSee('4 alerts need attention')
+            ->assertSee('Expired pack')
+            ->assertDontSee('Other staff spill')
+            ->assertSee(route('staff.transactions.stockIn', ['item' => $outItem->id]), false);
+    }
+
+    public function test_mobile_reference_shell_bottom_nav_kpis_and_responsive_tables_across_roles(): void
+    {
+        $item = InventoryItem::create([
+            'name' => 'Ref Test Pork Belly',
+            'sku' => 'REF-001',
+            'category_id' => $this->category->id,
+            'unit_id' => $this->unit->id,
+            'current_quantity' => 20,
+            'minimum_stock_level' => 5,
+            'reorder_level' => 10,
+            'is_active' => true,
+        ]);
+
+        InventoryTransaction::create([
+            'inventory_item_id' => $item->id,
+            'user_id' => $this->staff->id,
+            'transaction_type' => 'stock_in',
+            'quantity' => 10,
+            'previous_quantity' => 10,
+            'updated_quantity' => 20,
+            'reason' => 'Morning restock',
+            'transaction_date' => now(),
+        ]);
+
+        $ownerDash = $this->actingAs($this->owner)->get(route('owner.dashboard'));
+        $ownerDash->assertOk()
+            ->assertSee('eb-mobile-brand', false)
+            ->assertSee('mobileDrawerToggleBtn', false)
+            ->assertSee('eb-mobile-bottom-nav', false)
+            ->assertSee('eb-mobile-tx-list', false)
+            ->assertSee('eb-kpi-wide-mobile', false)
+            ->assertSee('Ref Test Pork Belly');
+
+        $staffDash = $this->actingAs($this->staff)->get(route('staff.dashboard'));
+        $staffDash->assertOk()
+            ->assertSee('eb-mobile-brand', false)
+            ->assertSee('mobileDrawerToggleBtn', false)
+            ->assertSee('eb-mobile-bottom-nav', false)
+            ->assertSee('eb-mobile-tx-list', false)
+            ->assertDontSee('Settings')
+            ->assertDontSee('Reports');
+
+        $supplier = Supplier::create([
+            'name' => 'Ref Test Supplier',
+            'contact_person' => 'Mang Juan',
+            'phone' => '09170001111',
+        ]);
+
+        Purchase::create([
+            'purchase_number' => 'PO-REF-001',
+            'supplier_id' => $supplier->id,
+            'purchase_date' => now()->toDateString(),
+            'total_amount' => 1500,
+            'created_by' => $this->owner->id,
+        ]);
+
+        \App\Models\AuditLog::create([
+            'user_id' => $this->owner->id,
+            'action' => 'mobile_ref_check',
+            'model_type' => InventoryItem::class,
+            'model_id' => $item->id,
+            'details' => 'Verified responsive table card',
+        ]);
+
+        foreach ([
+            route('owner.inventory.index'),
+            route('owner.transactions.index'),
+            route('owner.suppliers.index'),
+            route('owner.purchases.index'),
+            route('owner.staff.index'),
+            route('owner.audit.index'),
+        ] as $url) {
+            $res = $this->actingAs($this->owner)->get($url);
+            $res->assertOk()->assertSee('eb-responsive-table', false);
+        }
+
+        $settingsRes = $this->actingAs($this->owner)->get(route('owner.settings.index'));
+        $settingsRes->assertOk()
+            ->assertSee(route('app.download'), false)
+            ->assertSee(rawurlencode('/download/mybatchoy.apk'), false)
+            ->assertDontSee('github.com/Tristan-HubTech/mybatchoyv2/releases', false);
     }
 }
 

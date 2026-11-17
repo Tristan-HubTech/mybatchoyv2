@@ -11,6 +11,10 @@ class StaffSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->isProduction()) {
+            throw new \RuntimeException('StaffSeeder contains development credentials and cannot execute in production.');
+        }
+
         $staffRole = Role::where('name', 'staff')->first();
         if (! $staffRole) {
             $this->command?->error('Staff role not found. Ensure RoleSeeder runs first.');

@@ -19,8 +19,8 @@
 
     <x-alert-banner />
 
-    <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-xl-4">
+    <div class="row g-2 g-md-3 mb-4">
+        <div class="col-6 col-xl-4">
             <x-kpi-card
                 label="Purchase Orders"
                 :value="number_format($totalRecords)"
@@ -32,11 +32,11 @@
                 </x-slot:icon>
             </x-kpi-card>
         </div>
-        <div class="col-sm-6 col-xl-4">
+        <div class="col-6 col-xl-4">
             <x-kpi-card
                 label="Combined Spend"
                 :value="'₱' . number_format($combinedTotal, 2)"
-                meta="Total cost across orders"
+                meta="Realized spend across orders"
                 metaTone="warn"
                 tone="red">
                 <x-slot:icon>
@@ -93,7 +93,7 @@
                 :actionLabel="request()->filled('supplier') || request()->filled('search') || request()->filled('from') || request()->filled('to') ? 'Clear Filters' : '+ Record Purchase'" />
         @else
             <div class="table-responsive">
-                <table class="table eb-table table-hover align-middle">
+                <table class="table eb-table eb-responsive-table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Purchase #</th>
@@ -101,6 +101,7 @@
                             <th>Supplier</th>
                             <th class="text-end">Line Items</th>
                             <th class="text-end">Total Amount</th>
+                            <th>Fulfillment</th>
                             <th>Recorded By</th>
                             <th class="text-end">Action</th>
                         </tr>
@@ -113,20 +114,39 @@
                                         'name' => $line->inventoryItem?->name ?? 'Deleted Item',
                                         'qty' => (rtrim(rtrim(number_format((float) $line->quantity, 3), '0'), '.') ?: '0') . ' ' . ($line->inventoryItem?->unit?->short_name ?? ''),
                                         'unit_cost' => number_format((float) $line->unit_cost, 2),
-                                        'subtotal' => number_format((float) $line->subtotal, 2),
+                                        'subtotal' => number_format((float) $line->total_cost, 2),
                                     ];
                                 })->values()->all();
+                                $poStatus = $purchase->supplier_status ?? 'confirmed';
+                                $deliveryStatus = $purchase->delivery_status ?? 'delivered';
+                                $statusVariant = match ($poStatus) {
+                                    'rejected' => 'danger',
+                                    'pending' => 'warning',
+                                    default => $purchase->received_in_inventory ? 'success' : 'info',
+                                };
                             @endphp
                             <tr>
-                                <td class="font-monospace fw-bold text-white">{{ $purchase->purchase_number }}</td>
-                                <td class="small" style="color: #BDBDBD;">{{ \Carbon\Carbon::parse($purchase->purchase_date)->format('M d, Y') }}</td>
-                                <td class="fw-semibold text-white">{{ $purchase->supplier?->name ?? 'Direct / Walk-in' }}</td>
-                                <td class="text-end">
+                                <td class="font-monospace fw-bold text-white eb-cell-primary" data-label="Purchase #">{{ $purchase->purchase_number }}</td>
+                                <td class="small" data-label="Date" style="color: #BDBDBD;">{{ \Carbon\Carbon::parse($purchase->purchase_date)->format('M d, Y') }}</td>
+                                <td class="fw-semibold text-white" data-label="Supplier">{{ $purchase->supplier?->name ?? 'Direct / Walk-in' }}</td>
+                                <td class="text-end" data-label="Items">
                                     <x-status-badge variant="neutral" :label="$purchase->items->count() . ' ' . Str::plural('item', $purchase->items->count())" />
                                 </td>
-                                <td class="text-end fw-bold text-warning">&#8369;{{ number_format((float) $purchase->total_amount, 2) }}</td>
-                                <td class="small text-white">{{ $purchase->creator?->name ?? 'System' }}</td>
-                                <td class="text-end">
+                                <td class="text-end fw-bold text-warning" data-label="Total">&#8369;{{ number_format((float) $purchase->total_amount, 2) }}</td>
+                                <td data-label="Fulfillment">
+                                    <x-status-badge :variant="$statusVariant" :label="ucfirst($poStatus) . ' / ' . ucfirst(str_replace('_', ' ', $deliveryStatus))" />
+                                    @if ($purchase->invoice_number)
+                                        <div class="small muted mt-1 font-monospace">Inv: {{ $purchase->invoice_number }}</div>
+                                    @endif
+                                </td>
+                                <td class="small text-white" data-label="Recorded By">{{ $purchase->creator?->name ?? 'System' }}</td>
+                                <td class="text-end eb-cell-actions">
+                                    @if (!$purchase->received_in_inventory && $poStatus === 'confirmed')
+                                        <form method="POST" action="{{ route('owner.purchases.receive', $purchase) }}" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-success me-1">Mark Received</button>
+                                        </form>
+                                    @endif
                                     <button type="button"
                                         class="btn btn-sm btn-outline-light purchase-details-btn"
                                         data-bs-toggle="modal"
@@ -222,12 +242,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('purchasesFilterForm');
     if (form) {
         form.addEventListener('submit', function () {
-            const skeleton = document.getElementById('purchasesSkeletonWrapper');
-            const live = document.getElementById('purchasesLiveContent');
-            if (skeleton && live) {
-                skeleton.classList.remove('d-none');
-                live.style.opacity = '0.35';
-                live.style.pointerEvents = 'none';
+            if (typeof window.activatePageSkeleton === 'function') {
+                window.activatePageSkeleton('purchasesSkeletonWrapper', 'purchasesLiveContent');
+            } else {
+                const skeleton = document.getElementById('purchasesSkeletonWrapper');
+                const live = document.getElementById('purchasesLiveContent');
+                if (skeleton && live) {
+                    live.classList.add('d-none');
+                    skeleton.classList.remove('d-none');
+                }
             }
         });
     }

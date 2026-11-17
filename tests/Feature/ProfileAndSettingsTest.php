@@ -332,4 +332,94 @@ class ProfileAndSettingsTest extends TestCase
             $this->get(route($routeName))->assertOk();
         }
     }
+
+    public function test_logo_and_apk_support_configured_object_storage_disk(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('s3');
+        config([
+            'filesystems.media_disk' => 's3',
+            'filesystems.apk_disk' => 's3',
+        ]);
+
+        $ownerRole = Role::firstOrCreate(['name' => 'owner'], ['label' => 'Owner / Admin']);
+        $owner = User::factory()->create([
+            'role_id' => $ownerRole->id,
+            'username' => 'owner-s3-media',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($owner)->put(route('owner.settings.update'), [
+            'business_name' => 'S3 Brand',
+            'session_timeout_minutes' => 20,
+            'default_minimum_stock_level' => 0,
+            'default_reorder_level' => 0,
+            'logo' => \Illuminate\Http\UploadedFile::fake()->createWithContent(
+                'batchoy-s3.png',
+                base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lWQAAAAASUVORK5CYII=')
+            ),
+        ])->assertRedirect(route('owner.settings.index'));
+
+        $logoPath = BusinessSetting::findOrFail(1)->logo_path;
+        $this->assertNotNull($logoPath);
+        \Illuminate\Support\Facades\Storage::disk('s3')->assertExists($logoPath);
+        $this->get(route('media.logo'))->assertOk();
+
+        $apkFile = \Illuminate\Http\UploadedFile::fake()->create('mybatchoy.apk', 64, 'application/vnd.android.package-archive');
+        $this->post(route('owner.settings.apk.upload'), ['apk_file' => $apkFile])
+            ->assertRedirect(route('owner.settings.index') . '#mobile-app-download');
+
+        \Illuminate\Support\Facades\Storage::disk('s3')->assertExists('downloads/mybatchoy.apk');
+        $this->get(route('app.download'))->assertOk()
+            ->assertHeader('Content-Disposition', 'attachment; filename="mybatchoy.apk"');
+    }
+
+    public function test_serverless_readonly_blocks_local_logo_and_apk_uploads_and_allows_mobile_apk_url_redirect(): void
+    {
+        config([
+            'app.serverless_readonly' => true,
+            'filesystems.media_disk' => 'public',
+            'filesystems.apk_disk' => 'local',
+        ]);
+
+        $ownerRole = Role::firstOrCreate(['name' => 'owner'], ['label' => 'Owner / Admin']);
+        $owner = User::factory()->create([
+            'role_id' => $ownerRole->id,
+            'username' => 'owner-vercel-guard',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($owner)->put(route('owner.settings.update'), [
+            'business_name' => 'Serverless Brand',
+            'session_timeout_minutes' => 20,
+            'default_minimum_stock_level' => 0,
+            'default_reorder_level' => 0,
+            'logo' => \Illuminate\Http\UploadedFile::fake()->createWithContent(
+                'batchoy.png',
+                base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lWQAAAAASUVORK5CYII=')
+            ),
+        ])->assertSessionHasErrors('logo');
+
+        $apkFile = \Illuminate\Http\UploadedFile::fake()->create('mybatchoy.apk', 64, 'application/vnd.android.package-archive');
+        $this->post(route('owner.settings.apk.upload'), ['apk_file' => $apkFile])
+            ->assertSessionHasErrors('apk_file');
+
+        config(['app.mobile_apk_url' => 'https://cdn.example.com/releases/mybatchoy.apk']);
+        $this->get(route('app.download'))
+            ->assertRedirect('https://cdn.example.com/releases/mybatchoy.apk');
+
+        foreach ([
+            'http://insecure.example.com/mybatchoy.apk',
+            'javascript:alert(1)',
+            'ftp://files.example.com/mybatchoy.apk',
+            'not-a-valid-url',
+        ] as $unsafeUrl) {
+            config(['app.mobile_apk_url' => $unsafeUrl]);
+            $this->assertNull(\App\Http\Controllers\AppDownloadController::validatedExternalApkUrl());
+            $this->assertSame(route('app.download'), \App\Http\Controllers\AppDownloadController::directDownloadUrl());
+
+            $res = $this->get(route('app.download'));
+            $res->assertStatus(422);
+            $this->assertNull($res->headers->get('Location'));
+        }
+    }
 }

@@ -8,6 +8,9 @@ use App\Models\AuditLog;
 use App\Models\BusinessSetting;
 use App\Models\User;
 use App\Services\ActiveSessionManager;
+use App\Services\MailTransportGuard;
+use App\Services\PermissionService;
+use App\Services\TechnicalAuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,9 +44,17 @@ class AuthApiController extends Controller
         $ipKey = 'login-ip:' . $request->ip();
         $accountKey = 'login:' . $username;
 
+        $maxAttempts = self::MAX_LOGIN_ATTEMPTS;
+        $decaySeconds = self::DECAY_SECONDS;
+        if (ActiveSessionManager::hasTable('technical_settings')) {
+            $tech = \App\Models\TechnicalSetting::current();
+            $maxAttempts = max(3, (int) $tech->security_lockout_attempts);
+            $decaySeconds = max(60, (int) $tech->security_lockout_minutes * 60);
+        }
+
         if (
             RateLimiter::tooManyAttempts($ipKey, self::MAX_IP_ATTEMPTS)
-            || RateLimiter::tooManyAttempts($accountKey, self::MAX_LOGIN_ATTEMPTS)
+            || RateLimiter::tooManyAttempts($accountKey, $maxAttempts)
         ) {
             $seconds = max(RateLimiter::availableIn($ipKey), RateLimiter::availableIn($accountKey));
             $this->recordAuthEvent($request, null, 'login_rate_limited', 'API login throttled after repeated failed attempts.');
@@ -53,13 +64,18 @@ class AuthApiController extends Controller
             ]);
         }
 
-        $user = User::with('role')
+        $user = User::with(['role', 'supplier'])
             ->whereRaw('LOWER(username) = ?', [$username])
             ->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password) || !$user->is_active) {
-            RateLimiter::hit($ipKey, self::DECAY_SECONDS);
-            RateLimiter::hit($accountKey, self::DECAY_SECONDS);
+        $supplierBlocked = $user && $user->isSupplier() && (
+            !$user->supplier_id
+            || !$user->supplier()->where('is_active', true)->exists()
+        );
+
+        if (!$user || !Hash::check($credentials['password'], $user->password) || !$user->is_active || $supplierBlocked) {
+            RateLimiter::hit($ipKey, $decaySeconds);
+            RateLimiter::hit($accountKey, $decaySeconds);
             $this->recordAuthEvent($request, $user, 'login_failed', 'Failed mobile API login attempt.');
 
             throw ValidationException::withMessages([
@@ -151,9 +167,8 @@ class AuthApiController extends Controller
             return response()->json(['message' => $genericMessage]);
         }
 
-        $transport = config('mail.mailers.' . config('mail.default') . '.transport');
-        if (in_array($transport, ['log', 'failover', 'array'], true)) {
-            Log::warning('Password recovery email not sent because the configured mail transport may log message contents.');
+        if (!MailTransportGuard::isSafeForOtp()) {
+            Log::warning('Password recovery email not sent because the configured mail transport does not support secure live delivery.');
 
             return response()->json(['message' => $genericMessage]);
         }
@@ -292,7 +307,8 @@ class AuthApiController extends Controller
 
     public static function formatUser(User $user): array
     {
-        $user->loadMissing('role');
+        $user->loadMissing(['role', 'supplier']);
+        $roleName = $user->role?->name ?? 'staff';
 
         return [
             'id' => $user->id,
@@ -300,8 +316,11 @@ class AuthApiController extends Controller
             'username' => $user->username,
             'email' => $user->email,
             'phone' => $user->phone,
-            'role' => $user->role?->name ?? 'staff',
-            'role_label' => $user->role?->label ?? ucfirst($user->role?->name ?? 'Staff'),
+            'role' => $roleName,
+            'role_label' => $user->role?->label ?? ucfirst($roleName),
+            'supplier_id' => $user->supplier_id,
+            'supplier_name' => $user->supplier?->name,
+            'permission_groups' => PermissionService::permissionGroupsForRole($roleName),
             'is_active' => (bool) $user->is_active,
             'mfa_enabled' => (bool) $user->mfa_enabled,
             'last_login_at' => $user->last_login_at?->toIso8601String(),
@@ -331,5 +350,15 @@ class AuthApiController extends Controller
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
+
+        TechnicalAuditLogger::record(
+            $request,
+            $user?->id,
+            'security',
+            $action,
+            $details,
+            User::class,
+            $user?->id
+        );
     }
 }

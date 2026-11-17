@@ -12,25 +12,27 @@
     <!-- 1. HERO WELCOME BANNER (Matches Target Design Reference IMAGE 1) -->
     <div class="eb-hero-banner">
         <div class="eb-hero-content">
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                <span class="badge px-2 py-1" style="background: rgba(229, 57, 53, 0.2); color: #FFFFFF; border: 1px solid rgba(229, 57, 53, 0.5); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
-                    Dashboard Overview
-                </span>
-                <span class="badge px-2 py-1" style="background: rgba(255, 193, 7, 0.16); color: #FFC107; border: 1px solid rgba(255, 193, 7, 0.4); font-size: 0.72rem; font-weight: 700;">
-                    Staff Member
-                </span>
-                <span class="small" style="color: #BDBDBD; font-size: 0.78rem;">
-                    &bull; Period: <strong class="text-white">{{ $rangeLabel }}</strong> ({{ \Carbon\Carbon::parse($startDate)->format('M d, Y') }} &ndash; {{ \Carbon\Carbon::parse($endDate)->format('M d, Y') }})
-                </span>
-            </div>
+            <div class="eb-hero-text">
+                <div class="d-none d-md-flex flex-wrap align-items-center gap-2 mb-2">
+                    <span class="badge px-2 py-1" style="background: rgba(229, 57, 53, 0.2); color: #FFFFFF; border: 1px solid rgba(229, 57, 53, 0.5); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+                        Dashboard Overview
+                    </span>
+                    <span class="badge px-2 py-1" style="background: rgba(255, 193, 7, 0.16); color: #FFC107; border: 1px solid rgba(255, 193, 7, 0.4); font-size: 0.72rem; font-weight: 700;">
+                        Staff Member
+                    </span>
+                    <span class="small" style="color: #BDBDBD; font-size: 0.78rem;">
+                        &bull; Period: <strong class="text-white">{{ $rangeLabel }}</strong> ({{ \Carbon\Carbon::parse($startDate)->format('M d, Y') }} &ndash; {{ \Carbon\Carbon::parse($endDate)->format('M d, Y') }})
+                    </span>
+                </div>
 
-            <h1 class="eb-hero-title">Welcome back, {{ $currentUser->name }}!</h1>
-            <p class="eb-hero-subtitle">Here's what's happening with your business today.</p>
+                <h1 class="eb-hero-title">Welcome back, {{ $currentUser->name }}!</h1>
+                <p class="eb-hero-subtitle">Here's what's happening with your business today.</p>
+            </div>
 
             <!-- Integrated Date Filter & Refresh Bar -->
             <form action="{{ route('staff.dashboard') }}" method="GET" id="filterForm" class="eb-hero-controls">
-                <div class="d-flex align-items-center gap-2">
-                    <label for="rangeSelector" class="small fw-semibold mb-0" style="color: #BDBDBD; font-size: 0.78rem;">Date Range:</label>
+                <div class="d-flex align-items-center gap-2 flex-grow-1 flex-md-grow-0">
+                    <label for="rangeSelector" class="small fw-semibold mb-0 d-none d-md-inline" style="color: #BDBDBD; font-size: 0.78rem;">Date Range:</label>
                     <select name="range" id="rangeSelector" class="form-select form-select-sm" style="width: auto; min-width: 150px; background-color: #111111; color: #FFFFFF; border-color: #333333; font-size: 0.82rem;">
                         <option value="today" {{ $rangeKey === 'today' ? 'selected' : '' }}>Today</option>
                         <option value="7days" {{ $rangeKey === '7days' ? 'selected' : '' }}>Last 7 Days</option>
@@ -40,15 +42,15 @@
                     </select>
                 </div>
 
-                <div id="customDatesWrapper" class="{{ $rangeKey === 'custom' ? 'd-flex' : 'd-none' }} flex-wrap align-items-center gap-2">
-                    <input type="date" name="from" class="form-control form-control-sm" style="width: 144px;" value="{{ \Carbon\Carbon::parse($startDate)->format('Y-m-d') }}" max="{{ date('Y-m-d') }}" aria-label="Start date">
-                    <span class="small" style="color: #BDBDBD;">to</span>
-                    <input type="date" name="to" class="form-control form-control-sm" style="width: 144px;" value="{{ \Carbon\Carbon::parse($endDate)->format('Y-m-d') }}" max="{{ date('Y-m-d') }}" aria-label="End date">
+                <div id="customDatesWrapper" class="{{ $rangeKey === 'custom' ? 'd-flex' : 'd-none' }} flex-wrap align-items-center gap-2 w-100 w-md-auto">
+                    <input type="date" name="from" class="form-control form-control-sm" value="{{ \Carbon\Carbon::parse($startDate)->format('Y-m-d') }}" max="{{ date('Y-m-d') }}" aria-label="Start date">
+                    <span class="small d-none d-sm-inline" style="color: #BDBDBD;">to</span>
+                    <input type="date" name="to" class="form-control form-control-sm" value="{{ \Carbon\Carbon::parse($endDate)->format('Y-m-d') }}" max="{{ date('Y-m-d') }}" aria-label="End date">
                     <button type="submit" class="btn btn-sm btn-primary px-3">Apply</button>
                 </div>
 
                 <a href="{{ route('staff.dashboard', ['range' => $rangeKey, 'from' => \Carbon\Carbon::parse($startDate)->format('Y-m-d'), 'to' => \Carbon\Carbon::parse($endDate)->format('Y-m-d')]) }}"
-                   class="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1"
+                   class="btn btn-sm btn-outline-light d-inline-flex align-items-center justify-content-center gap-1"
                    id="refreshMetricsBtn"
                    title="Reload the latest stock numbers">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFC107" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
@@ -62,10 +64,10 @@
         </div>
     </div>
 
-    <!-- 2. SUMMARY KPI CARDS (5 Operational Cards Matching Target Reference) -->
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-5 g-3 mb-4">
+    <!-- 2. SUMMARY KPI CARDS (2x2 Reference Mobile Grid + Desktop 5-Column Strip) -->
+    <div class="row g-2 g-md-3 mb-4">
         <!-- Card 1: Total Items -->
-        <div class="col">
+        <div class="col-6 col-xl">
             <a href="{{ route('staff.inventory.index') }}" class="eb-kpi-card" title="View all active inventory items">
                 <div class="eb-kpi-circle kpi-red">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
@@ -85,7 +87,7 @@
         </div>
 
         <!-- Card 2: Items In Stock -->
-        <div class="col">
+        <div class="col-6 col-xl">
             <a href="{{ route('staff.inventory.index', ['status' => 'in_stock']) }}" class="eb-kpi-card" title="View healthy stock items">
                 <div class="eb-kpi-circle kpi-green">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
@@ -105,7 +107,7 @@
         </div>
 
         <!-- Card 3: Stock Movements -->
-        <div class="col">
+        <div class="col-6 col-xl">
             <a href="{{ route('staff.transactions.index') }}" class="eb-kpi-card" title="View stock transactions in {{ $rangeLabel }}">
                 <div class="eb-kpi-circle kpi-green">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -125,7 +127,7 @@
         </div>
 
         <!-- Card 4: Low Stock -->
-        <div class="col">
+        <div class="col-6 col-xl">
             <a href="{{ route('staff.inventory.index', ['status' => 'low_stock']) }}" class="eb-kpi-card" title="View low stock items needing reorder">
                 <div class="eb-kpi-circle kpi-yellow">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -141,8 +143,8 @@
         </div>
 
         <!-- Card 5: Out of Stock -->
-        <div class="col">
-            <a href="{{ route('staff.inventory.index', ['status' => 'out_of_stock']) }}" class="eb-kpi-card" title="View depleted items">
+        <div class="col-12 col-xl">
+            <a href="{{ route('staff.inventory.index', ['status' => 'out_of_stock']) }}" class="eb-kpi-card eb-kpi-wide-mobile" title="View depleted items">
                 <div class="eb-kpi-circle kpi-red">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                 </div>
@@ -205,7 +207,7 @@
                             <span style="color: #E53935; font-weight: 800;">&minus;</span>
                             <span>Remove Stock</span>
                         </a>
-                        <a href="{{ route('staff.transactions.adjustment') }}" class="eb-quick-btn">
+                        <a href="{{ route('staff.adjustments.index') }}" class="eb-quick-btn">
                             <span style="color: #FFC107;">&#9998;</span>
                             <span>Correct Stock</span>
                         </a>
@@ -291,7 +293,8 @@
             <div class="eb-panel-card h-100">
                 <div class="eb-panel-header">
                     <div class="eb-panel-title">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#FFC107" stroke="#FFC107" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <span class="eb-panel-title-accent d-md-none" aria-hidden="true"></span>
+                        <svg class="d-none d-md-inline" width="18" height="18" viewBox="0 0 24 24" fill="#FFC107" stroke="#FFC107" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                         <span>Recent Transactions</span>
                     </div>
                     <a href="{{ route('staff.transactions.index') }}" class="eb-panel-action">View All &rarr;</a>
@@ -304,7 +307,8 @@
                             <a href="{{ route('staff.transactions.stockIn') }}" class="btn btn-sm btn-primary">+ Add Stock</a>
                         </div>
                     @else
-                        <div class="table-responsive">
+                        @include('dashboard.partials.recent-transactions-mobile', ['transactions' => $recentTransactions])
+                        <div class="d-none d-md-block table-responsive">
                             <table class="table eb-table table-hover align-middle mb-0">
                                 <thead>
                                     <tr>
@@ -419,7 +423,7 @@
                         </div>
                     @else
                         <div class="table-responsive">
-                            <table class="table eb-table table-hover align-middle mb-0">
+                            <table class="table eb-table eb-responsive-table table-hover align-middle mb-0">
                                 <thead>
                                     <tr>
                                         <th class="ps-3">Item Name</th>
@@ -435,22 +439,22 @@
                                             $unitName = $item->unit?->short_name ?? '';
                                         @endphp
                                         <tr>
-                                            <td class="ps-3">
+                                            <td class="ps-3 eb-cell-primary" data-label="Item">
                                                 <div class="fw-bold text-white">{{ $item->name }}</div>
                                                 <div class="small" style="color: #BDBDBD; font-size: 0.74rem;">{{ $item->category->name ?? 'Uncategorized' }}</div>
                                             </td>
-                                            <td>
+                                            <td data-label="Status">
                                                 @if($isOut)
                                                     <x-status-badge variant="tx-out" label="Out of Stock" />
                                                 @else
                                                     <x-status-badge variant="tx-adj" label="Low Stock" />
                                                 @endif
                                             </td>
-                                            <td class="text-end fw-bold" style="color: {{ $isOut ? '#E53935' : '#FFC107' }};">
+                                            <td class="text-end fw-bold" data-label="Current Stock" style="color: {{ $isOut ? '#E53935' : '#FFC107' }};">
                                                 {{ number_format((float) $item->current_quantity, 2) }}
                                                 <span class="small fw-normal" style="color: #BDBDBD;">{{ $unitName }}</span>
                                             </td>
-                                            <td class="text-end pe-3">
+                                            <td class="text-end pe-3 eb-cell-actions">
                                                 <a href="{{ route('staff.transactions.stockIn', ['item' => $item->id]) }}"
                                                    class="btn btn-sm btn-primary py-1 px-2"
                                                    style="font-size: 0.74rem; font-weight: 700;">

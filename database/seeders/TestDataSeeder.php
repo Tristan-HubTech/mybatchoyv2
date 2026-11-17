@@ -16,6 +16,10 @@ class TestDataSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->isProduction()) {
+            throw new \RuntimeException('TestDataSeeder contains demonstration records and cannot execute in production.');
+        }
+
         BusinessSetting::updateOrCreate(
             ['id' => 1],
             [

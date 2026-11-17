@@ -56,12 +56,23 @@
 
 ---
 
-## Step 4: Run Migrations on Cloud MySQL
-Temporarily point your local `.env` `DB_*` variables to your cloud MySQL database, run:
+## Step 4: Initialize Production Cloud MySQL Database Safely
+> **Important:** Never run demo seeders (`OwnerSeeder`, `StaffSeeder`, `InventorySeeder`, `TestDataSeeder`) in production. Always provision production credentials interactively.
+
+Temporarily point your local `.env` `DB_*` variables to your cloud MySQL database (or run from a secure admin shell), then run:
 ```powershell
-C:\xampp\php\php.exe artisan migrate --seed --force
+C:\xampp\php\php.exe artisan migrate --force
+C:\xampp\php\php.exe artisan db:seed --class=ProductionSeeder --force
+C:\xampp\php\php.exe artisan app:create-owner
+C:\xampp\php\php.exe artisan app:create-system-admin
 ```
 Then restore your local `.env` `DB_HOST=127.0.0.1` for local XAMPP use.
+
+### Local Development / Demo Seeding (Non-Production Only)
+For local testing environments (`APP_ENV=local` only), you can populate sample roles, inventory, and test accounts using:
+```powershell
+C:\xampp\php\php.exe artisan migrate --seed
+```
 
 ---
 

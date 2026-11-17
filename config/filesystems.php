@@ -15,6 +15,10 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    'media_disk' => env('MEDIA_DISK', 'public'),
+
+    'apk_disk' => env('APK_DISK', 'local'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks

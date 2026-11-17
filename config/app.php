@@ -16,7 +16,9 @@ return [
 
     'force_https' => (bool) env('FORCE_HTTPS', env('APP_ENV') === 'production'),
 
-    'timezone' => 'UTC',
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
+    'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
 
     'locale' => 'en',
 
@@ -75,5 +77,7 @@ return [
     ])->toArray(),
 
     'mobile_apk_url' => env('MOBILE_APK_URL'),
+
+    'serverless_readonly' => (bool) env('VERCEL', false),
 
 ];

@@ -174,6 +174,8 @@ class TransactionApiController extends Controller
 
     public function adjustment(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->isOwner(), 403, 'Staff must submit stock adjustment requests for Owner approval.');
+
         $validated = $request->validate([
             'inventory_item_id' => 'required|exists:inventory_items,id',
             'current_quantity' => 'required|numeric|min:0|max:999999999.999',

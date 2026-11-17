@@ -1,0 +1,8 @@
+<FilesMatch "\.apk$">
+    ForceType application/vnd.android.package-archive
+    <IfModule mod_headers.c>
+        Header set Content-Disposition "attachment; filename=\"mybatchoy.apk\""
+        Header set X-Content-Type-Options "nosniff"
+    </IfModule>
+</FilesMatch>
+

@@ -14,9 +14,9 @@ return new class extends Migration
             $table->string('channel', 16)->default('web');
             $table->string('session_hash', 64)->index();
             $table->string('device_info', 120);
-            $table->timestamp('logged_in_at');
-            $table->timestamp('last_activity_at');
-            $table->timestamp('expires_at')->index();
+            $table->timestamp('logged_in_at')->nullable();
+            $table->timestamp('last_activity_at')->nullable();
+            $table->timestamp('expires_at')->nullable()->index();
             $table->timestamps();
         });
 
@@ -25,7 +25,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('code_hash');
             $table->string('purpose', 40)->default('session_recovery');
-            $table->timestamp('expires_at')->index();
+            $table->timestamp('expires_at')->nullable()->index();
             $table->timestamp('used_at')->nullable();
             $table->timestamps();
 

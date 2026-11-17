@@ -179,8 +179,10 @@ class TransactionController extends Controller
         );
     }
 
-    public function adjustmentForm()
+    public function adjustmentForm(Request $request)
     {
+        abort_unless($request->user()?->isOwner(), 403, 'Staff must submit stock adjustment requests for Owner approval.');
+
         return view('transactions.adjustment', [
             'items' => InventoryItem::with('unit')->where('is_active', true)->orderBy('name')->get(),
         ]);
@@ -188,6 +190,8 @@ class TransactionController extends Controller
 
     public function adjustment(Request $request)
     {
+        abort_unless($request->user()?->isOwner(), 403, 'Staff must submit stock adjustment requests for Owner approval.');
+
         $validated = $request->validate([
             'inventory_item_id' => 'required|exists:inventory_items,id',
             'current_quantity' => 'required|numeric|min:0|max:999999999.999',

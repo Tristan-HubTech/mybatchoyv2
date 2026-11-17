@@ -4,10 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ config('app.name', 'MyBatchoy') }} - @yield('title', 'Inventory System')</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
+    @if (app()->environment('production'))
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
+    @else
+        <link href="{{ asset('vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+    @endif
     <script>
         // Immediately restore collapsed sidebar state to prevent layout flash
         (function() {
@@ -46,7 +50,7 @@
 
         body {
             margin: 0;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg);
             color: var(--text);
             overflow-x: clip;
@@ -334,7 +338,7 @@
             line-height: 1.05;
         }
         .brand-script {
-            font-family: 'Kaushan Script', cursive;
+            font-family: 'Kaushan Script', 'Segoe Script', 'Brush Script MT', cursive;
             font-size: clamp(0.95rem, 1.6vh, 1.12rem);
             color: #FFFFFF;
             letter-spacing: 0.02em;
@@ -433,6 +437,7 @@
             padding: clamp(0.28rem, 0.85vh, 0.62rem) 0.68rem;
             min-height: clamp(30px, 5.1vh, 46px);
             border-radius: 10px;
+            background: transparent;
             color: #E2E2E2;
             transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
             border: 1px solid transparent;
@@ -625,7 +630,8 @@
             justify-content: center;
             transition: all 0.2s ease;
         }
-        .topbar-bell-btn:hover {
+        .topbar-bell-btn:hover,
+        .topbar-bell-btn[aria-expanded="true"] {
             border-color: var(--primary);
             background: rgba(229, 57, 53, 0.14);
             color: #FFFFFF;
@@ -646,6 +652,204 @@
             align-items: center;
             justify-content: center;
             border: 2px solid #0D0D0D;
+        }
+        .eb-notif-wrap {
+            position: relative;
+        }
+        .eb-notif-dropdown {
+            width: min(390px, calc(100vw - 1.5rem));
+            padding: 0;
+            margin-top: 0.5rem !important;
+            background: #141414;
+            border: 1px solid #2E2E2E;
+            border-radius: 14px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.72);
+            color: #FFFFFF;
+            overflow: hidden;
+            z-index: 1060;
+        }
+        .eb-notif-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.85rem 1rem;
+            background: #1A1A1A;
+            border-bottom: 1px solid #2A2A2A;
+        }
+        .eb-notif-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #FFFFFF;
+            line-height: 1.2;
+        }
+        .eb-notif-subtitle {
+            font-size: 0.75rem;
+            color: #A8A8A8;
+            margin-top: 0.12rem;
+        }
+        .eb-notif-count-chip {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.25rem 0.55rem;
+            border-radius: 999px;
+            background: rgba(76, 175, 80, 0.14);
+            color: #81C784;
+            border: 1px solid rgba(76, 175, 80, 0.35);
+            white-space: nowrap;
+        }
+        .eb-notif-count-chip.has-alerts {
+            background: rgba(229, 57, 53, 0.16);
+            color: #FF8A80;
+            border-color: rgba(229, 57, 53, 0.45);
+        }
+        .eb-notif-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            padding: 0.6rem 0.9rem;
+            background: #121212;
+            border-bottom: 1px solid #242424;
+        }
+        .eb-notif-pill {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 0.18rem 0.5rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+        }
+        .eb-notif-pill.pill-danger {
+            background: rgba(229, 57, 53, 0.16);
+            color: #FF8A80;
+            border-color: rgba(229, 57, 53, 0.4);
+        }
+        .eb-notif-pill.pill-warning {
+            background: rgba(255, 193, 7, 0.14);
+            color: #FFD54F;
+            border-color: rgba(255, 193, 7, 0.38);
+        }
+        .eb-notif-pill.pill-info {
+            background: rgba(66, 165, 245, 0.14);
+            color: #90CAF9;
+            border-color: rgba(66, 165, 245, 0.35);
+        }
+        .eb-notif-pill.pill-spoilage {
+            background: rgba(255, 112, 67, 0.16);
+            color: #FFAB91;
+            border-color: rgba(255, 112, 67, 0.4);
+        }
+        .eb-notif-list {
+            max-height: 360px;
+            overflow-y: auto;
+            padding: 0.55rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+        .eb-notif-item {
+            display: block;
+            text-decoration: none;
+            background: #191919;
+            border: 1px solid #292929;
+            border-left-width: 3px;
+            border-radius: 10px;
+            padding: 0.65rem 0.75rem;
+            transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+        }
+        .eb-notif-item:hover {
+            background: #222222;
+            border-color: #3D3D3D;
+            transform: translateY(-1px);
+        }
+        .eb-notif-item.sev-danger { border-left-color: #E53935; }
+        .eb-notif-item.sev-warning { border-left-color: #FFC107; }
+        .eb-notif-item.sev-info { border-left-color: #42A5F5; }
+        .eb-notif-item.sev-spoilage { border-left-color: #FF7043; }
+        .eb-notif-item-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.28rem;
+        }
+        .eb-notif-badge {
+            font-size: 0.66rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 0.14rem 0.45rem;
+            border-radius: 6px;
+            background: #262626;
+            color: #F5F5F5;
+        }
+        .eb-notif-item.sev-danger .eb-notif-badge { background: rgba(229, 57, 53, 0.22); color: #FF8A80; }
+        .eb-notif-item.sev-warning .eb-notif-badge { background: rgba(255, 193, 7, 0.2); color: #FFD54F; }
+        .eb-notif-item.sev-info .eb-notif-badge { background: rgba(66, 165, 245, 0.2); color: #90CAF9; }
+        .eb-notif-item.sev-spoilage .eb-notif-badge { background: rgba(255, 112, 67, 0.2); color: #FFAB91; }
+        .eb-notif-time {
+            font-size: 0.7rem;
+            color: #9A9A9A;
+        }
+        .eb-notif-item-title {
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            line-height: 1.3;
+        }
+        .eb-notif-item-msg {
+            font-size: 0.78rem;
+            color: #C2C2C2;
+            margin-top: 0.16rem;
+            line-height: 1.38;
+        }
+        .eb-notif-item-cta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #FFC107;
+            margin-top: 0.35rem;
+        }
+        .eb-notif-empty {
+            text-align: center;
+            padding: 1.5rem 1rem;
+        }
+        .eb-notif-empty-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+        .eb-notif-empty-sub {
+            font-size: 0.78rem;
+            color: #9E9E9E;
+            margin-top: 0.25rem;
+        }
+        .eb-notif-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.7rem 0.95rem;
+            background: #1A1A1A;
+            border-top: 1px solid #2A2A2A;
+        }
+        .eb-notif-footer-link {
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #FFC107;
+            text-decoration: none;
+        }
+        .eb-notif-footer-link:hover {
+            color: #FFFFFF;
+            text-decoration: underline;
+        }
+        @media (max-width: 575.98px) {
+            .eb-notif-dropdown {
+                position: fixed !important;
+                top: 62px !important;
+                left: 0.75rem !important;
+                right: 0.75rem !important;
+                width: auto !important;
+                transform: none !important;
+            }
         }
         .user-profile-trigger {
             display: inline-flex;
@@ -1078,10 +1282,184 @@
             color: #9E9E9E;
         }
         .eb-footer-tagline {
-            font-family: 'Kaushan Script', cursive;
+            font-family: 'Kaushan Script', 'Segoe Script', 'Brush Script MT', cursive;
             font-size: 1.05rem;
             color: #FFC107;
             letter-spacing: 0.02em;
+        }
+
+        /* Mobile Header Brand Lockup + Fixed Bottom Nav */
+        .eb-mobile-brand {
+            align-items: center;
+            gap: 0.55rem;
+            text-decoration: none;
+            min-width: 0;
+        }
+        .eb-mobile-brand .brand-mascot-wrap {
+            width: 38px;
+            height: 38px;
+        }
+        .eb-mobile-brand-meta {
+            display: flex;
+            flex-direction: column;
+            line-height: 1;
+            min-width: 0;
+        }
+        .eb-mobile-brand-top {
+            display: flex;
+            align-items: baseline;
+            gap: 0.25rem;
+            white-space: nowrap;
+        }
+        .eb-mobile-brand-meta .brand-script {
+            font-size: 0.95rem;
+        }
+        .eb-mobile-brand-meta .brand-text {
+            font-size: 0.98rem;
+        }
+        .eb-mobile-brand-meta .brand-subtitle {
+            margin-top: 2px;
+            font-size: 0.52rem;
+            padding: 1px 5px;
+        }
+        .sidebar-close-btn {
+            margin-left: auto;
+            border: 1px solid #2E2E2E;
+            background: #171717;
+            color: #FFFFFF;
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .sidebar-close-btn:hover {
+            border-color: var(--primary);
+            background: rgba(229, 57, 53, 0.16);
+        }
+
+        /* Mobile Recent Transactions List & Yellow Title Accent */
+        .eb-panel-title-accent {
+            width: 3px;
+            height: 18px;
+            border-radius: 2px;
+            background: #FFC107;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .eb-mobile-tx-list {
+            display: flex;
+            flex-direction: column;
+        }
+        .eb-mobile-tx-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.7rem;
+            padding: 0.75rem 0.95rem;
+            border-bottom: 1px solid #262626;
+        }
+        .eb-mobile-tx-row:last-child {
+            border-bottom: 0;
+        }
+        .eb-mobile-tx-left {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            min-width: 0;
+            flex: 1;
+        }
+        .eb-mobile-tx-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: #FFFFFF;
+        }
+        .eb-mobile-tx-icon.tx-in { background: #2E7D32; }
+        .eb-mobile-tx-icon.tx-out { background: #C62828; }
+        .eb-mobile-tx-icon.tx-adj { background: #FFC107; color: #111111; }
+        .eb-mobile-tx-icon.tx-spoil { background: #B71C1C; }
+        .eb-mobile-tx-text {
+            min-width: 0;
+        }
+        .eb-mobile-tx-type {
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .eb-mobile-tx-item {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #FFFFFF;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .eb-mobile-tx-right {
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .eb-mobile-tx-qty {
+            font-size: 0.84rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .eb-mobile-tx-date {
+            font-size: 0.68rem;
+            color: #9E9E9E;
+            margin-top: 2px;
+        }
+
+        /* Mobile Bottom Navigation Bar (< 768px) */
+        .eb-mobile-bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            background: #0A0A0A;
+            border-top: 1px solid #262626;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            padding: 0.38rem 0.25rem calc(0.42rem + env(safe-area-inset-bottom, 0px));
+            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.72);
+        }
+        .eb-bottom-nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.18rem;
+            padding: 0.25rem 0.2rem;
+            color: #9E9E9E;
+            font-size: 0.69rem;
+            font-weight: 600;
+            text-decoration: none;
+            position: relative;
+            transition: color 0.16s ease;
+        }
+        .eb-bottom-nav-link:hover {
+            color: #FFFFFF;
+        }
+        .eb-bottom-nav-link.active {
+            color: #E53935;
+            font-weight: 700;
+        }
+        .eb-bottom-nav-link.active::before {
+            content: '';
+            position: absolute;
+            top: -0.38rem;
+            left: 24%;
+            right: 24%;
+            height: 2.5px;
+            border-radius: 0 0 3px 3px;
+            background: #E53935;
         }
 
         /* MOBILE SLIDE-OUT DRAWER (< 992px) */
@@ -1123,10 +1501,126 @@
                 opacity: 1;
                 pointer-events: auto;
             }
-            .topbar, .content-area { padding: 0.85rem 1rem; }
-            .eb-hero-art { width: 55%; opacity: 0.35; }
-            .eb-hero-greeting { font-size: 1.3rem; }
+            .topbar {
+                background: #0A0A0A;
+                padding: 0.55rem 0.9rem;
+                min-height: 58px;
+            }
+            .content-area { padding: 0.85rem 0.9rem 1.25rem; }
+            .eb-hero-art { width: 48%; max-width: 240px; opacity: 0.88; }
+            .eb-hero-greeting { font-size: 1.35rem; }
             .eb-kpi-spark { display: none; }
+        }
+
+        /* MOBILE PHONE REFERENCE LAYOUT (< 768px) */
+        @media (max-width: 767.98px) {
+            .main-panel {
+                padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+            }
+            .eb-hero-banner {
+                min-height: 118px;
+                margin-bottom: 0.9rem;
+            }
+            .eb-hero-banner::before {
+                background:
+                    linear-gradient(122deg, transparent 42%, rgba(229, 57, 53, 0.42) 50%, rgba(229, 57, 53, 0.14) 60%, transparent 66%),
+                    linear-gradient(122deg, transparent 54%, rgba(255, 193, 7, 0.35) 60%, transparent 69%);
+            }
+            .eb-hero-art {
+                width: 46%;
+                max-width: 175px;
+                opacity: 0.95;
+            }
+            .eb-hero-art::after {
+                background: linear-gradient(90deg, #141414 0%, rgba(20, 20, 20, 0.72) 22%, rgba(20, 20, 20, 0.08) 70%, transparent 100%);
+            }
+            .eb-hero-content {
+                padding: 0.95rem 1rem;
+                gap: 0.65rem;
+            }
+            .eb-hero-text {
+                max-width: 60%;
+            }
+            .eb-hero-controls {
+                width: 100%;
+                padding: 0.45rem 0.55rem;
+                gap: 0.45rem;
+            }
+            .eb-hero-controls .form-select,
+            .eb-hero-controls .form-control {
+                min-width: 0 !important;
+                width: 100% !important;
+            }
+            .eb-kpi-card {
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                padding: 0.95rem 0.6rem;
+                gap: 0.42rem;
+                border-radius: 14px;
+            }
+            .eb-kpi-circle {
+                width: 42px;
+                height: 42px;
+            }
+            .eb-kpi-body {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .eb-kpi-label {
+                order: 2;
+                font-size: 0.78rem;
+                color: #BDBDBD;
+                white-space: normal;
+                margin-bottom: 0;
+            }
+            .eb-kpi-value {
+                order: 1;
+                font-size: clamp(1.15rem, 5.2vw, 1.55rem);
+                line-height: 1.1;
+                margin-bottom: 0.1rem;
+                overflow-wrap: anywhere;
+            }
+            .eb-kpi-meta {
+                order: 3;
+                justify-content: center;
+                font-size: 0.69rem;
+                margin-top: 0.12rem;
+            }
+            .eb-kpi-card.eb-kpi-wide-mobile {
+                flex-direction: row;
+                justify-content: flex-start;
+                text-align: left;
+                padding: 0.85rem 1rem;
+                gap: 0.85rem;
+            }
+            .eb-kpi-card.eb-kpi-wide-mobile .eb-kpi-body {
+                align-items: flex-start;
+            }
+            .eb-kpi-card.eb-kpi-wide-mobile .eb-kpi-value {
+                order: 2;
+                font-size: 1.4rem;
+            }
+            .eb-kpi-card.eb-kpi-wide-mobile .eb-kpi-label {
+                order: 1;
+            }
+            .eb-panel-header,
+            .eb-table-header {
+                padding: 0.8rem 0.95rem;
+                margin-bottom: 0;
+            }
+            .eb-panel-body {
+                padding: 0.9rem;
+            }
+            .eb-footer {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.25rem;
+                padding: 0.8rem 0.95rem 0.95rem;
+            }
         }
 
         /* USABILITY & ACCESSIBILITY ENHANCEMENTS */
@@ -1189,9 +1683,27 @@
                     ? $currentUser->role?->name
                     : \App\Models\Role::cachedNameById($currentUser->role_id))
                 : null;
-            $urgentAlertCount = (isset($lowStockCount, $outOfStockCount))
-                ? ((int) $lowStockCount + (int) $outOfStockCount)
-                : \App\Models\InventoryItem::cachedUrgentAlertCount();
+            $routePrefix = match ($userRole) {
+                'system_admin' => 'sysadmin',
+                'owner' => 'owner',
+                'supplier' => 'supplier',
+                default => 'staff',
+            };
+            $userRoleLabel = match ($userRole) {
+                'system_admin' => 'System Admin (Dev)',
+                'owner' => 'Owner / Admin',
+                'supplier' => 'Supplier Portal',
+                default => 'Staff Member',
+            };
+            $notifSummary = $currentUser
+                ? \App\Services\StockNotificationService::forUser($currentUser, $userRole, 15)
+                : ['total_count' => 0, 'counts' => ['out_of_stock' => 0, 'low_stock' => 0, 'reorder' => 0, 'spoilage' => 0], 'notifications' => []];
+            $notifTotalCount = (int) ($notifSummary['total_count'] ?? 0);
+            $notifCounts = $notifSummary['counts'] ?? ['out_of_stock' => 0, 'low_stock' => 0, 'reorder' => 0, 'spoilage' => 0];
+            $notifItems = $notifSummary['notifications'] ?? [];
+            $inventoryAlertFilter = (($notifCounts['out_of_stock'] ?? 0) > 0 && ($notifCounts['low_stock'] ?? 0) === 0)
+                ? 'out_of_stock'
+                : 'low_stock';
         @endphp
         <div class="app-shell">
             <!-- Mobile Backdrop -->
@@ -1207,10 +1719,106 @@
                         <span class="brand-text">BATCHOY <span class="visually-hidden">MyBatchoy</span></span>
                         <span class="brand-subtitle">UNLI SABAW</span>
                     </div>
+                    <button type="button" class="sidebar-close-btn d-inline-flex d-lg-none" onclick="closeMobileDrawer()" aria-label="Close navigation menu">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                        </svg>
+                    </button>
                 </div>
 
                 <nav class="sidebar-nav" id="sidebar-navigation">
-                    @if($userRole === 'owner')
+                    @if($userRole === 'system_admin')
+                        <div class="nav-group">
+                            <div class="nav-group-label">TECHNICAL OVERVIEW</div>
+                            <a class="nav-link {{ request()->routeIs('dashboard','sysadmin.dashboard') ? 'active' : '' }}" href="{{ route('sysadmin.dashboard') }}" title="Dashboard" data-tooltip="Dashboard">
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Technical Dashboard</span>
+                            </a>
+                        </div>
+
+                        <div class="nav-group">
+                            <div class="nav-group-label">SYSTEM OPERATIONS</div>
+                            <a class="nav-link {{ request()->routeIs('sysadmin.health') ? 'active' : '' }}" href="{{ route('sysadmin.health') }}" title="Application Health" data-tooltip="App Health">
+                                <span class="nav-icon" style="color: #4CAF50;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.354 5.354-4 4a.5.5 0 0 1-.708 0l-2-2a.5.5 0 1 1 .708-.708L7 9.293l3.646-3.647a.5.5 0 0 1 .708.708z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Application Health</span>
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('sysadmin.security*') ? 'active' : '' }}" href="{{ route('sysadmin.security') }}" title="Security Monitoring" data-tooltip="Security Monitoring">
+                                <span class="nav-icon" style="color: #FFC107;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M5.338 1.59a61.44 61.44 0 0 0-2.837.856.481.481 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.725 10.725 0 0 0 2.287 2.233c.346.244.652.42.893.533.12.057.218.095.293.118a.55.55 0 0 0 .101.025.615.615 0 0 0 .1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Security Monitoring</span>
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('sysadmin.backup*') ? 'active' : '' }}" href="{{ route('sysadmin.backup') }}" title="Backups" data-tooltip="Backups">
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Backups</span>
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('sysadmin.config*') ? 'active' : '' }}" href="{{ route('sysadmin.config') }}" title="Technical Configuration" data-tooltip="Technical Configuration">
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Technical Config</span>
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('sysadmin.accounts*') ? 'active' : '' }}" href="{{ route('sysadmin.accounts.index') }}" title="System Admin Accounts" data-tooltip="Admin Accounts">
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                        <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Admin Accounts</span>
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('sysadmin.access*') ? 'active' : '' }}" href="{{ route('sysadmin.access.index') }}" title="Business Access Requests" data-tooltip="Access Requests">
+                                <span class="nav-icon" style="color: #E53935;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Access Requests</span>
+                            </a>
+                        </div>
+
+                        <div class="nav-group">
+                            <div class="nav-group-label">ACCOUNT</div>
+                            <a class="nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}" href="{{ route('profile.show') }}" title="Profile" data-tooltip="Profile">
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                        <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Profile</span>
+                            </a>
+                            <form method="POST" action="{{ route('logout') }}" class="m-0">
+                                @csrf
+                                <button class="nav-link logout-btn w-100 text-start" type="submit" title="Logout" data-tooltip="Logout">
+                                    <span class="nav-icon" style="color: #FFC107;">
+                                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                                            <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                        </svg>
+                                    </span>
+                                    <span class="nav-label">Logout</span>
+                                </button>
+                            </form>
+                        </div>
+                    @elseif($userRole === 'owner')
                         <!-- 1. OVERVIEW -->
                         <div class="nav-group">
                             <div class="nav-group-label">OVERVIEW</div>
@@ -1243,6 +1851,15 @@
                                 </span>
                                 <span class="nav-label">Stock Transactions</span>
                             </a>
+                            <a class="nav-link {{ request()->routeIs('owner.adjustments.*') ? 'active' : '' }}" href="{{ route('owner.adjustments.index') }}" title="Stock Adjustments & Counts" data-tooltip="Stock Adjustments">
+                                <span class="nav-icon" style="color: #FFC107;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M5 10.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5zm0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
+                                        <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Stock Adjustments</span>
+                            </a>
                         </div>
 
                         <!-- 3. PURCHASING -->
@@ -1255,6 +1872,14 @@
                                     </svg>
                                 </span>
                                 <span class="nav-label">Suppliers</span>
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('owner.supplier-accounts.*') ? 'active' : '' }}" href="{{ route('owner.supplier-accounts.index') }}" title="Supplier Accounts" data-tooltip="Supplier Accounts">
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm9.5-5a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1H15V3.5a.5.5 0 0 1 .5-.5z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Supplier Accounts</span>
                             </a>
                             <a class="nav-link {{ request()->routeIs('owner.purchases.*') ? 'active' : '' }}" href="{{ route('owner.purchases.index') }}" title="Purchases" data-tooltip="Purchases">
                                 <span class="nav-icon">
@@ -1299,6 +1924,14 @@
                                 </span>
                                 <span class="nav-label">Audit Logs</span>
                             </a>
+                            <a class="nav-link {{ request()->routeIs('owner.access.*') ? 'active' : '' }}" href="{{ route('owner.access.index') }}" title="System Admin Access Requests" data-tooltip="Access Requests">
+                                <span class="nav-icon" style="color: #E53935;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Access Requests</span>
+                            </a>
                         </div>
 
                         <!-- 6. ACCOUNT -->
@@ -1320,6 +1953,68 @@
                                     </svg>
                                 </span>
                                 <span class="nav-label">Settings</span>
+                            </a>
+                            <button class="nav-link d-lg-none w-100 text-start" type="button" onclick="closeMobileDrawer(); openHelpGuideModal();">
+                                <span class="nav-icon" style="color: #FFC107;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                        <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Quick Help Guide</span>
+                            </button>
+                            <form method="POST" action="{{ route('logout') }}" class="m-0">
+                                @csrf
+                                <button class="nav-link logout-btn w-100 text-start" type="submit" title="Logout" data-tooltip="Logout">
+                                    <span class="nav-icon" style="color: #FFC107;">
+                                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                                            <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                        </svg>
+                                    </span>
+                                    <span class="nav-label">Logout</span>
+                                </button>
+                            </form>
+                        </div>
+                    @elseif($userRole === 'supplier')
+                        <div class="nav-group">
+                            <div class="nav-group-label">SUPPLIER PORTAL</div>
+                            <a class="nav-link {{ request()->routeIs('dashboard','supplier.dashboard') ? 'active' : '' }}" href="{{ route('supplier.dashboard') }}" title="Dashboard" data-tooltip="Dashboard">
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Supplier Dashboard</span>
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('supplier.orders.*') ? 'active' : '' }}" href="{{ route('supplier.orders.index') }}" title="Purchase Orders" data-tooltip="Purchase Orders">
+                                <span class="nav-icon" style="color: #FFC107;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Purchase Orders</span>
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('supplier.profile*') ? 'active' : '' }}" href="{{ route('supplier.profile') }}" title="Supplier Profile" data-tooltip="Supplier Profile">
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Supplier Profile</span>
+                            </a>
+                        </div>
+
+                        <div class="nav-group">
+                            <div class="nav-group-label">ACCOUNT</div>
+                            <a class="nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}" href="{{ route('profile.show') }}" title="Account Security" data-tooltip="Account Security">
+                                <span class="nav-icon">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                        <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">My Account</span>
                             </a>
                             <form method="POST" action="{{ route('logout') }}" class="m-0">
                                 @csrf
@@ -1368,6 +2063,15 @@
                                 </span>
                                 <span class="nav-label">Stock Transactions</span>
                             </a>
+                            <a class="nav-link {{ request()->routeIs('staff.adjustments.*') ? 'active' : '' }}" href="{{ route('staff.adjustments.index') }}" title="Count & Adjust Requests" data-tooltip="Count Requests">
+                                <span class="nav-icon" style="color: #FFC107;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M5 10.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5zm0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
+                                        <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Count &amp; Adjust Requests</span>
+                            </a>
                         </div>
 
                         <!-- 3. ACCOUNT -->
@@ -1382,6 +2086,15 @@
                                 </span>
                                 <span class="nav-label">Profile</span>
                             </a>
+                            <button class="nav-link d-lg-none w-100 text-start" type="button" onclick="closeMobileDrawer(); openHelpGuideModal();">
+                                <span class="nav-icon" style="color: #FFC107;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                        <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-label">Quick Help Guide</span>
+                            </button>
                             <form method="POST" action="{{ route('logout') }}" class="m-0">
                                 @csrf
                                 <button class="nav-link logout-btn w-100 text-start" type="submit" title="Logout" data-tooltip="Logout">
@@ -1401,37 +2114,172 @@
 
             <div class="main-panel">
                 <header class="topbar">
-                    <div class="d-flex align-items-center gap-3">
-                        <button class="sidebar-toggle" id="sidebarToggleBtn" type="button" aria-label="Toggle sidebar navigation" aria-controls="sidebar-navigation" aria-expanded="true" onclick="toggleSidebar()">
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                        <button class="sidebar-toggle d-none d-lg-inline-flex" id="sidebarToggleBtn" type="button" aria-label="Toggle sidebar navigation" aria-controls="sidebar-navigation" aria-expanded="true" onclick="toggleSidebar()">
                             <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
                                 <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
                             </svg>
                         </button>
-                        <div class="topbar-title-text d-none d-sm-block">
+                        <a href="{{ route($routePrefix . '.dashboard') }}" class="eb-mobile-brand d-flex d-lg-none" aria-label="MyBatchoy Home">
+                            <span class="brand-mascot-wrap">
+                                <img src="{{ asset('images/eustace-mascot.jpg') }}" alt="Eustace Batchoy">
+                            </span>
+                            <span class="eb-mobile-brand-meta">
+                                <span class="eb-mobile-brand-top">
+                                    <span class="brand-script">Eustace</span>
+                                    <span class="brand-text">BATCHOY</span>
+                                </span>
+                                <span class="brand-subtitle">UNLI SABAW</span>
+                            </span>
+                        </a>
+                        <div class="topbar-title-text d-none d-lg-block">
                             @yield('title', 'Dashboard')
                         </div>
                     </div>
                     <div class="topbar-meta">
-                        <button type="button" class="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1" id="openHelpGuideBtn" onclick="openHelpGuideModal()" title="Open step-by-step instructions">
+                        <button type="button" class="btn btn-sm btn-outline-warning d-none d-lg-inline-flex align-items-center gap-1" id="openHelpGuideBtn" onclick="openHelpGuideModal()" title="Open step-by-step instructions">
                             <span aria-hidden="true">?</span>
                             <span class="d-none d-md-inline">Quick Help</span>
                         </button>
 
-                        <a href="{{ $userRole === 'owner' ? route('owner.inventory.index', ['status' => 'low_stock']) : route('staff.inventory.index', ['status' => 'low_stock']) }}" class="topbar-bell-btn" title="{{ $urgentAlertCount }} stock alert(s) need attention">
-                            <svg width="17" height="17" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                                <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zm.995-14.901a1 1 0 1 0-1.99 0A5.002 5.002 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7 0-2.42-1.72-4.44-4.005-4.901z"/>
-                            </svg>
-                            @if($urgentAlertCount > 0)
-                                <span class="topbar-bell-badge">{{ $urgentAlertCount }}</span>
-                            @endif
-                        </a>
+                        <div class="dropdown eb-notif-wrap">
+                            <button
+                                type="button"
+                                class="topbar-bell-btn"
+                                id="notificationsBellBtn"
+                                data-bs-toggle="dropdown"
+                                data-bs-auto-close="outside"
+                                aria-expanded="false"
+                                aria-label="Open stock notifications"
+                                title="{{ $notifTotalCount > 0 ? $notifTotalCount . ' stock notification(s)' : 'No stock problems right now' }}"
+                            >
+                                <svg width="17" height="17" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zm.995-14.901a1 1 0 1 0-1.99 0A5.002 5.002 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7 0-2.42-1.72-4.44-4.005-4.901z"/>
+                                </svg>
+                                @if($notifTotalCount > 0)
+                                    <span class="topbar-bell-badge" id="notificationsBellBadge">{{ $notifTotalCount > 99 ? '99+' : $notifTotalCount }}</span>
+                                @endif
+                            </button>
 
-                        <div class="dropdown">
+                            <div class="dropdown-menu dropdown-menu-end eb-notif-dropdown" id="eb-notif-dropdown" aria-labelledby="notificationsBellBtn">
+                                <div class="eb-notif-header">
+                                    <div>
+                                        <div class="eb-notif-title">Notifications</div>
+                                        <div class="eb-notif-subtitle">
+                                            @if($notifTotalCount > 0)
+                                                {{ $notifTotalCount }} {{ \Illuminate\Support\Str::plural('alert', $notifTotalCount) }} need attention
+                                            @elseif($userRole === 'system_admin')
+                                                No active access grants
+                                            @elseif($userRole === 'supplier')
+                                                No pending purchase orders
+                                            @else
+                                                No active stock issues
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <span class="eb-notif-count-chip {{ $notifTotalCount > 0 ? 'has-alerts' : '' }}">
+                                        {{ $notifTotalCount > 0 ? $notifTotalCount . ' Active' : 'All Good' }}
+                                    </span>
+                                </div>
+
+                                @if($notifTotalCount > 0 && in_array($userRole, ['owner', 'staff'], true))
+                                    <div class="eb-notif-pills">
+                                        @if(($notifCounts['out_of_stock'] ?? 0) > 0)
+                                            <span class="eb-notif-pill pill-danger">{{ $notifCounts['out_of_stock'] }} Out of Stock</span>
+                                        @endif
+                                        @if(($notifCounts['low_stock'] ?? 0) > 0)
+                                            <span class="eb-notif-pill pill-warning">{{ $notifCounts['low_stock'] }} Low Stock</span>
+                                        @endif
+                                        @if(($notifCounts['reorder'] ?? 0) > 0)
+                                            <span class="eb-notif-pill pill-info">{{ $notifCounts['reorder'] }} Reorder</span>
+                                        @endif
+                                        @if(($notifCounts['spoilage'] ?? 0) > 0)
+                                            <span class="eb-notif-pill pill-spoilage">{{ $notifCounts['spoilage'] }} Spoilage</span>
+                                        @endif
+                                    </div>
+                                @endif
+
+                                <div class="eb-notif-list">
+                                    @forelse($notifItems as $notif)
+                                        @php
+                                            if ($userRole === 'system_admin' || $userRole === 'supplier') {
+                                                $notifUrl = !empty($notif['route']) ? route($notif['route']) : route($routePrefix . '.dashboard');
+                                                $notifBadge = $userRole === 'system_admin' ? 'ACCESS' : 'ORDER';
+                                                $notifCta = $userRole === 'system_admin' ? 'Open access portal →' : 'View purchase order →';
+                                            } else {
+                                                $notifUrl = ($notif['action_type'] ?? '') === 'spoilage_history'
+                                                    ? route($routePrefix . '.transactions.index', ['type' => 'spoilage'])
+                                                    : route($routePrefix . '.transactions.stockIn', ['item' => $notif['item_id']]);
+                                                $notifBadge = $notif['badge'] ?? 'ALERT';
+                                                $notifCta = ($notif['action_type'] ?? '') === 'spoilage_history' ? 'View spoilage history →' : 'Tap to add stock →';
+                                            }
+                                            $severityClass = match ($notif['severity'] ?? 'info') {
+                                                'danger' => 'sev-danger',
+                                                'warning' => 'sev-warning',
+                                                'spoilage' => 'sev-spoilage',
+                                                default => 'sev-info',
+                                            };
+                                        @endphp
+                                        <a href="{{ $notifUrl }}" class="eb-notif-item {{ $severityClass }}">
+                                            <div class="eb-notif-item-top">
+                                                <span class="eb-notif-badge">{{ $notifBadge }}</span>
+                                                @if(!empty($notif['time_ago']))
+                                                    <span class="eb-notif-time">{{ $notif['time_ago'] }}</span>
+                                                @endif
+                                            </div>
+                                            <div class="eb-notif-item-title">{{ $notif['title'] }}</div>
+                                            <div class="eb-notif-item-msg">{{ $notif['message'] }}</div>
+                                            <div class="eb-notif-item-cta">
+                                                {{ $notifCta }}
+                                            </div>
+                                        </a>
+                                    @empty
+                                        <div class="eb-notif-empty">
+                                            <div class="eb-notif-empty-title">{{ $userRole === 'system_admin' ? 'No temporary business grants active' : ($userRole === 'supplier' ? 'All orders up to date' : 'All stock levels look good') }}</div>
+                                            <div class="eb-notif-empty-sub">{{ $userRole === 'system_admin' ? 'Technical admin operations run isolated from confidential business records.' : ($userRole === 'supplier' ? 'No unconfirmed purchase orders waiting right now.' : 'No out-of-stock, low-stock, reorder warnings, or recent spoilage found.') }}</div>
+                                        </div>
+                                    @endforelse
+                                </div>
+
+                                <div class="eb-notif-footer">
+                                    @if($userRole === 'system_admin')
+                                        <a href="{{ route('sysadmin.access.index') }}" class="eb-notif-footer-link">
+                                            Access Requests
+                                        </a>
+                                        <a href="{{ route('sysadmin.security') }}" class="eb-notif-footer-link">
+                                            Security Logs
+                                        </a>
+                                    @elseif($userRole === 'supplier')
+                                        <a href="{{ route('supplier.orders.index') }}" class="eb-notif-footer-link">
+                                            Purchase Orders
+                                        </a>
+                                        <a href="{{ route('supplier.profile') }}" class="eb-notif-footer-link">
+                                            Supplier Profile
+                                        </a>
+                                    @else
+                                        <a href="{{ route($routePrefix . '.inventory.index', ['status' => $inventoryAlertFilter]) }}" class="eb-notif-footer-link">
+                                            View All Stock Problems
+                                        </a>
+                                        <a href="{{ route($routePrefix . '.transactions.index', ['type' => 'spoilage']) }}" class="eb-notif-footer-link">
+                                            Spoilage History
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="sidebar-toggle d-inline-flex d-lg-none" id="mobileDrawerToggleBtn" type="button" aria-label="Open menu navigation" aria-controls="sidebar" onclick="toggleMobileDrawer()">
+                            <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
+                            </svg>
+                        </button>
+
+                        <div class="dropdown d-none d-lg-block">
                             <button class="user-profile-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <span class="user-avatar-circle">{{ strtoupper(substr($currentUser->name, 0, 1)) }}</span>
                                 <span class="user-profile-info d-none d-sm-flex">
                                     <span class="user-profile-name">{{ $currentUser->name }}</span>
-                                    <span class="user-profile-role">{{ $userRole === 'owner' ? 'Owner / Admin' : 'Staff Member' }}</span>
+                                    <span class="user-profile-role">{{ $userRoleLabel }}</span>
                                 </span>
                                 <svg width="12" height="12" fill="#BDBDBD" viewBox="0 0 16 16" aria-hidden="true">
                                     <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
@@ -1440,7 +2288,7 @@
                             <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow-lg" style="background: #1B1B1B; border: 1px solid #333333; min-width: 200px;">
                                 <li class="px-3 py-2 border-bottom border-border">
                                     <div class="fw-bold text-white small">{{ $currentUser->name }}</div>
-                                    <div class="muted" style="font-size: 0.72rem;">{{ $userRole === 'owner' ? 'Owner / Admin' : 'Staff Member' }}</div>
+                                    <div class="muted" style="font-size: 0.72rem;">{{ $userRoleLabel }}</div>
                                 </li>
                                 <li><a class="dropdown-item py-2 small text-white" href="{{ route('profile.show') }}">My Profile</a></li>
                                 <li><button class="dropdown-item py-2 small text-warning" type="button" onclick="openHelpGuideModal()">Quick Help Guide</button></li>
@@ -1478,18 +2326,130 @@
                     <div class="eb-footer-tagline">Quality Food, Better Management.</div>
                 </footer>
             </div>
+
+            <!-- Mobile Bottom Navigation Bar (< 768px, Matches Reference Phone UI) -->
+            <nav class="eb-mobile-bottom-nav d-md-none" aria-label="Mobile quick navigation">
+                @if ($userRole === 'system_admin')
+                    <a href="{{ route('sysadmin.dashboard') }}" class="eb-bottom-nav-link {{ request()->routeIs('dashboard', 'sysadmin.dashboard') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z"/>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <a href="{{ route('sysadmin.health') }}" class="eb-bottom-nav-link {{ request()->routeIs('sysadmin.health') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.354 5.354-4 4a.5.5 0 0 1-.708 0l-2-2a.5.5 0 1 1 .708-.708L7 9.293l3.646-3.647a.5.5 0 0 1 .708.708z"/>
+                        </svg>
+                        <span>Health</span>
+                    </a>
+                    <a href="{{ route('sysadmin.security') }}" class="eb-bottom-nav-link {{ request()->routeIs('sysadmin.security*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M5.338 1.59a61.44 61.44 0 0 0-2.837.856.481.481 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.725 10.725 0 0 0 2.287 2.233c.346.244.652.42.893.533.12.057.218.095.293.118a.55.55 0 0 0 .101.025.615.615 0 0 0 .1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524z"/>
+                        </svg>
+                        <span>Security</span>
+                    </a>
+                    <a href="{{ route('sysadmin.access.index') }}" class="eb-bottom-nav-link {{ request()->routeIs('sysadmin.access*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                        </svg>
+                        <span>Access</span>
+                    </a>
+                @elseif ($userRole === 'supplier')
+                    <a href="{{ route('supplier.dashboard') }}" class="eb-bottom-nav-link {{ request()->routeIs('dashboard', 'supplier.dashboard') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z"/>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <a href="{{ route('supplier.orders.index') }}" class="eb-bottom-nav-link {{ request()->routeIs('supplier.orders.*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+                        </svg>
+                        <span>Orders</span>
+                    </a>
+                    <a href="{{ route('supplier.profile') }}" class="eb-bottom-nav-link {{ request()->routeIs('supplier.profile*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                        </svg>
+                        <span>Supplier</span>
+                    </a>
+                    <a href="{{ route('profile.show') }}" class="eb-bottom-nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                            <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                        </svg>
+                        <span>Account</span>
+                    </a>
+                @elseif ($userRole === 'owner')
+                    <a href="{{ route($routePrefix . '.dashboard') }}" class="eb-bottom-nav-link {{ request()->routeIs('dashboard', 'owner.dashboard', 'staff.dashboard') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z"/>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <a href="{{ route($routePrefix . '.inventory.index') }}" class="eb-bottom-nav-link {{ request()->routeIs($routePrefix . '.inventory.*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6z"/>
+                        </svg>
+                        <span>Inventory</span>
+                    </a>
+                    <a href="{{ route('owner.reports.index') }}" class="eb-bottom-nav-link {{ request()->routeIs('owner.reports.*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5v12h-2V2h2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
+                        </svg>
+                        <span>Reports</span>
+                    </a>
+                    <a href="{{ route('owner.settings.index') }}" class="eb-bottom-nav-link {{ request()->routeIs('owner.settings.*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
+                        </svg>
+                        <span>Settings</span>
+                    </a>
+                @else
+                    <a href="{{ route($routePrefix . '.dashboard') }}" class="eb-bottom-nav-link {{ request()->routeIs('dashboard', 'owner.dashboard', 'staff.dashboard') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5Z"/>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    <a href="{{ route($routePrefix . '.inventory.index') }}" class="eb-bottom-nav-link {{ request()->routeIs($routePrefix . '.inventory.*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6z"/>
+                        </svg>
+                        <span>Inventory</span>
+                    </a>
+                    <a href="{{ route('staff.transactions.index') }}" class="eb-bottom-nav-link {{ request()->routeIs('staff.transactions.*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5zm14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5z"/>
+                        </svg>
+                        <span>Transactions</span>
+                    </a>
+                    <a href="{{ route('profile.show') }}" class="eb-bottom-nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}">
+                        <svg width="19" height="19" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                            <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                        </svg>
+                        <span>Profile</span>
+                    </a>
+                @endif
+            </nav>
         </div>
 
     @else
         <div class="min-vh-100 d-flex flex-column justify-content-between" style="background: #111111;">
-            <header class="py-3 px-4 border-bottom" style="border-color: #242424 !important; background: #0A0A0A;">
+            <header class="py-2 py-md-3 px-3 px-md-4 border-bottom" style="border-color: #242424 !important; background: #0A0A0A;">
                 <div class="container d-flex align-items-center justify-content-between">
-                    <a href="{{ route('login') }}" class="d-flex align-items-center gap-2 text-decoration-none">
-                        <img src="{{ asset('images/eustace-mascot.jpg') }}" alt="Eustace Batchoy" style="width: 34px; height: 34px; border-radius: 8px; border: 1.5px solid #E53935; object-fit: cover;">
-                        <div>
-                            <span class="brand-text text-white fw-bold">MyBatchoy</span>
-                            <span class="eb-badge eb-badge-danger ms-2">Inventory System</span>
-                        </div>
+                    <a href="{{ route('login') }}" class="eb-mobile-brand d-flex text-decoration-none">
+                        <span class="brand-mascot-wrap" style="width: 38px; height: 38px;">
+                            <img src="{{ asset('images/eustace-mascot.jpg') }}" alt="Eustace Batchoy">
+                        </span>
+                        <span class="eb-mobile-brand-meta">
+                            <span class="eb-mobile-brand-top">
+                                <span class="brand-script">Eustace</span>
+                                <span class="brand-text">BATCHOY <span class="visually-hidden">MyBatchoy</span></span>
+                            </span>
+                            <span class="brand-subtitle">UNLI SABAW</span>
+                        </span>
                     </a>
                     <span class="small d-none d-sm-inline" style="color: #BDBDBD;">Eustace Batchoy &bull; Internal Operations Portal</span>
                 </div>
@@ -1507,7 +2467,43 @@
         </div>
     @endauth
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    @if (app()->environment('production'))
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    @else
+        <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+    @endif
+    <script src="{{ asset('vendor/qrcode/qrcode.min.js') }}"></script>
+    <script>
+        (function renderOfflineQrCodes() {
+            function buildQr() {
+                if (typeof window.qrcode !== 'function') return;
+                if (window.qrcode.stringToBytesFuncs && window.qrcode.stringToBytesFuncs['UTF-8']) {
+                    window.qrcode.stringToBytes = window.qrcode.stringToBytesFuncs['UTF-8'];
+                }
+                document.querySelectorAll('.eb-offline-qr[data-qr-text]').forEach(function (el) {
+                    var value = el.getAttribute('data-qr-text') || '';
+                    if (!value) return;
+                    try {
+                        var qr = window.qrcode(0, 'M');
+                        qr.addData(value);
+                        qr.make();
+                        el.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 1, scalable: true, alt: el.getAttribute('aria-label') || 'QR Code' });
+                        var svg = el.querySelector('svg');
+                        if (svg) {
+                            svg.style.width = '100%';
+                            svg.style.height = '100%';
+                            svg.style.display = 'block';
+                        }
+                    } catch (e) {}
+                });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', buildQr);
+            } else {
+                buildQr();
+            }
+        })();
+    </script>
     <script>
         // Desktop Collapse and Mobile Drawer Controller
         function toggleSidebar() {
@@ -1556,8 +2552,45 @@
             }
         });
 
+        let skeletonSafetyTimer = null;
+
+        function resetPageSkeletons() {
+            if (skeletonSafetyTimer) {
+                clearTimeout(skeletonSafetyTimer);
+                skeletonSafetyTimer = null;
+            }
+            document.querySelectorAll('[id$="SkeletonWrapper"]').forEach(function(el) {
+                el.classList.add('d-none');
+            });
+            document.querySelectorAll('[id$="LiveContent"]').forEach(function(el) {
+                el.classList.remove('d-none');
+                el.style.opacity = '';
+                el.style.pointerEvents = '';
+            });
+        }
+
+        window.activatePageSkeleton = function(skeletonId, liveId) {
+            const skeleton = document.getElementById(skeletonId);
+            const live = document.getElementById(liveId);
+            if (!skeleton || !live) {
+                return;
+            }
+            live.style.opacity = '';
+            live.style.pointerEvents = '';
+            live.classList.add('d-none');
+            skeleton.classList.remove('d-none');
+
+            if (skeletonSafetyTimer) {
+                clearTimeout(skeletonSafetyTimer);
+            }
+            skeletonSafetyTimer = setTimeout(resetPageSkeletons, 8000);
+        };
+
+        window.addEventListener('pageshow', resetPageSkeletons);
+
         // Auto close drawer when navigating on mobile
         document.addEventListener('DOMContentLoaded', function() {
+            resetPageSkeletons();
             const sidebar = document.getElementById('sidebar');
             if (sidebar) {
                 sidebar.querySelectorAll('.nav-link').forEach(link => {

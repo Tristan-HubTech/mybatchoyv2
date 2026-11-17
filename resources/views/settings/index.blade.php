@@ -4,7 +4,9 @@
 
 @section('content')
 @php
-    $apkUrl = config('app.mobile_apk_url') ?: 'https://github.com/Tristan-HubTech/mybatchoyv2/releases/latest/download/mybatchoy.apk';
+    $apkMeta = \App\Http\Controllers\AppDownloadController::apkMetadata();
+    $apkUrl = \App\Http\Controllers\AppDownloadController::directDownloadUrl(request(), false);
+    $qrApkUrl = \App\Http\Controllers\AppDownloadController::directDownloadUrl(request(), true);
 @endphp
 
 <x-page-header
@@ -58,9 +60,9 @@
                     </div>
                     <div>
                         <label for="business-logo" class="form-label">Business logo</label>
-                        @if ($settings->logo_path)
+                        @if ($logoUrl = $settings->resolveLogoUrl())
                             <div class="mb-2">
-                                <img src="{{ asset('storage/' . $settings->logo_path) }}" alt="Current business logo" class="rounded border p-1" style="border-color: #333333 !important; max-width: 100px; max-height: 72px; object-fit: contain; background: #141414;">
+                                <img src="{{ $logoUrl }}" alt="Current business logo" class="rounded border p-1" style="border-color: #333333 !important; max-width: 100px; max-height: 72px; object-fit: contain; background: #141414;">
                             </div>
                         @endif
                         <input id="business-logo" name="logo" type="file" class="form-control" accept="image/jpeg,image/png,image/webp">
@@ -211,13 +213,14 @@
                 @elseif ($pendingMfaSecret)
                     <div class="row g-3 align-items-center">
                         <div class="col-auto">
-                            <img
-                                src="https://api.qrserver.com/v1/create-qr-code/?size=128x128&data={{ urlencode($pendingMfaUri ?? '') }}"
-                                alt="Authenticator App MFA setup QR code"
-                                width="128"
-                                height="128"
-                                class="rounded bg-white p-2"
-                            >
+                            <div
+                                class="eb-offline-qr rounded bg-white p-2 d-inline-flex align-items-center justify-content-center"
+                                style="width: 128px; height: 128px;"
+                                data-qr-text="{{ $pendingMfaUri ?? '' }}"
+                                data-qr-size="128"
+                                role="img"
+                                aria-label="Authenticator App MFA setup QR code"
+                            ></div>
                         </div>
                         <div class="col">
                             <div class="fw-semibold text-white mb-1">Pair an Authenticator App (Optional)</div>
@@ -247,7 +250,7 @@
 
         <div class="eb-table-card">
             <div class="table-responsive">
-                <table class="table table-dark table-hover align-middle mb-0">
+                <table class="table table-dark eb-responsive-table table-hover align-middle mb-0">
                     <thead>
                         <tr>
                             <th>Account</th>
@@ -261,7 +264,7 @@
                     <tbody>
                         @forelse ($activeSessions as $activeSession)
                             <tr>
-                                <td>
+                                <td class="eb-cell-primary" data-label="Account">
                                     <div class="fw-semibold text-white">{{ $activeSession['username'] }}</div>
                                     <div class="small" style="color: #BDBDBD;">
                                         {{ $activeSession['name'] }} &middot; {{ $activeSession['role_label'] }}
@@ -270,16 +273,16 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td class="text-white">{{ $activeSession['device_info'] }}</td>
-                                <td class="small" style="color: #BDBDBD;">{{ $activeSession['logged_in_at']->format('M d, Y g:i A') }}</td>
-                                <td class="small" style="color: #BDBDBD;">
+                                <td class="text-white" data-label="Device">{{ $activeSession['device_info'] }}</td>
+                                <td class="small" data-label="Login Time" style="color: #BDBDBD;">{{ $activeSession['logged_in_at']->format('M d, Y g:i A') }}</td>
+                                <td class="small" data-label="Last Activity" style="color: #BDBDBD;">
                                     {{ $activeSession['last_activity_at']->diffForHumans() }}
                                     <div class="opacity-75">{{ $activeSession['last_activity_at']->format('M d, Y g:i A') }}</div>
                                 </td>
-                                <td>
+                                <td data-label="Status">
                                     <x-status-badge variant="success" :label="$activeSession['status']" />
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end eb-cell-actions">
                                     <button
                                         type="button"
                                         class="btn btn-sm btn-outline-danger js-revoke-session-btn"
@@ -516,7 +519,7 @@ document.addEventListener('DOMContentLoaded', function () {
             @if ($staffAccounts->isNotEmpty())
                 <div class="eb-table-card">
                     <div class="table-responsive">
-                        <table class="table table-dark table-hover align-middle mb-0">
+                        <table class="table table-dark eb-responsive-table table-hover align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th>Name</th>
@@ -529,13 +532,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             <tbody>
                                 @foreach ($staffAccounts as $staffAccount)
                                     <tr>
-                                        <td class="text-white fw-semibold">{{ $staffAccount->name }}</td>
-                                        <td style="color: #BDBDBD;">{{ $staffAccount->username }}</td>
-                                        <td style="color: #BDBDBD;">{{ $staffAccount->email }}</td>
-                                        <td>
+                                        <td class="text-white fw-semibold eb-cell-primary" data-label="Name">{{ $staffAccount->name }}</td>
+                                        <td data-label="Username" style="color: #BDBDBD;">{{ $staffAccount->username }}</td>
+                                        <td data-label="Email" style="color: #BDBDBD;">{{ $staffAccount->email }}</td>
+                                        <td data-label="Status">
                                             <x-status-badge :variant="$staffAccount->is_active ? 'success' : 'neutral'" :label="$staffAccount->is_active ? 'Active' : 'Inactive'" />
                                         </td>
-                                        <td class="text-end">
+                                        <td class="text-end eb-cell-actions">
                                             <a href="{{ route('owner.staff.edit', $staffAccount) }}" class="btn btn-sm btn-outline-light">Edit</a>
                                         </td>
                                     </tr>
@@ -750,25 +753,58 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="eb-panel-title">
                     <span id="mobile-app-title">Download Android App</span>
                 </div>
-                <x-status-badge variant="warning" label="Mobile Companion" />
+                @php($externalApkUrl = \App\Http\Controllers\AppDownloadController::validatedExternalApkUrl())
+                <x-status-badge
+                    :variant="($apkMeta['exists'] || $externalApkUrl) ? 'success' : 'warning'"
+                    :label="$apkMeta['exists'] ? ('APK Ready • ' . $apkMeta['size_label']) : ($externalApkUrl ? 'Direct APK URL Active' : 'Upload APK Required')" />
             </div>
             <div class="eb-panel-body">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-4">
-                    <div style="max-width: 560px;">
+                    <div style="max-width: 560px; flex: 1 1 300px;">
                         <p class="small mb-3" style="color: #BDBDBD;">
-                            Install the MyBatchoy Android companion app on phones or tablets in the kitchen to check inventory and log stock movements on the go.
+                            Install the MyBatchoy Android companion app directly from this server — no GitHub account or release page needed. Scanning the QR code or pressing Download starts the <strong>mybatchoy.apk</strong> download automatically.
                         </p>
-                        <a href="{{ $apkUrl }}" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Download Android APK</a>
+
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                            <a href="{{ $apkUrl }}" download="mybatchoy.apk" class="btn btn-primary">
+                                Download Android APK
+                            </a>
+                            @if ($apkMeta['exists'] && $apkMeta['updated_at'])
+                                <span class="small" style="color: #BDBDBD;">Updated {{ $apkMeta['updated_at'] }}</span>
+                            @endif
+                        </div>
+
+                        <form method="POST" action="{{ route('owner.settings.apk.upload') }}" enctype="multipart/form-data" class="p-3 rounded-3" style="background: #141414; border: 1px solid #2C2C2C;" data-settings-form data-safe-submit>
+                            @csrf
+                            <label for="apk-upload-input" class="form-label small mb-1">
+                                {{ $apkMeta['exists'] ? 'Replace Hosted APK File (mybatchoy.apk)' : 'Upload Built Android APK (mybatchoy.apk)' }}
+                            </label>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <input id="apk-upload-input" type="file" name="apk_file" accept=".apk,application/vnd.android.package-archive" class="form-control form-control-sm @error('apk_file') is-invalid @enderror" style="max-width: 340px;" required>
+                                <button type="submit" class="btn btn-sm btn-warning" data-loading-label="Uploading APK...">
+                                    Upload APK
+                                </button>
+                            </div>
+                            @error('apk_file')
+                                <div class="text-danger small mt-1">{{ $message }}</div>
+                            @enderror
+                            <div class="form-text mt-1">
+                                Or place your built file at <code>public/downloads/mybatchoy.apk</code>, or set <code>MOBILE_APK_URL</code> / <code>APK_DISK=s3</code> in serverless environments. Direct URL: <code>{{ $qrApkUrl }}</code>
+                            </div>
+                        </form>
                     </div>
-                    <div class="text-center">
-                        <img
-                            src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data={{ urlencode($apkUrl) }}"
-                            alt="QR code to download MyBatchoy Android APK"
-                            width="140"
-                            height="140"
-                            class="rounded bg-white p-2"
-                        >
-                        <div class="small mt-2" style="color: #BDBDBD;">Scan to download</div>
+                    <div class="text-center mx-auto mx-md-0">
+                        <div
+                            class="eb-offline-qr rounded bg-white p-2 d-inline-flex align-items-center justify-content-center mx-auto"
+                            style="width: 160px; height: 160px;"
+                            data-qr-text="{{ $qrApkUrl }}"
+                            data-qr-encoded="{{ rawurlencode($qrApkUrl) }}"
+                            data-qr-size="160"
+                            role="img"
+                            aria-label="QR code to auto-download MyBatchoy Android APK"
+                        ></div>
+                        <div class="small mt-2 fw-semibold text-white">Scan to auto-download APK</div>
+                        <div class="small" style="color: #9E9E9E; max-width: 210px; word-break: break-all; font-size: 0.7rem;">{{ $qrApkUrl }}</div>
                     </div>
                 </div>
             </div>

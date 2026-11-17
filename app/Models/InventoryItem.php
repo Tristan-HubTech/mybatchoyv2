@@ -4,16 +4,88 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class InventoryItem extends Model
 {
     use HasFactory;
 
+    public static function generateUniqueSku(string $name): string
+    {
+        $base = strtoupper(Str::slug($name));
+        if ($base === '') {
+            $base = 'ITEM';
+        }
+
+        do {
+            $sku = $base . '-' . random_int(100, 999);
+        } while (static::where('sku', $sku)->exists());
+
+        return $sku;
+    }
+
+    /**
+     * Validate catalog metadata while keeping active category/unit checks intact
+     * and preventing direct stock overwrites during item edits.
+     */
+    public static function validateItemRequest(Request $request, ?self $existing = null): array
+    {
+        $rawSku = trim((string) $request->input('sku', ''));
+        $request->merge(['sku' => $rawSku === '' ? null : $rawSku]);
+
+        $categoryRule = Rule::exists('inventory_categories', 'id')->where(function ($query) use ($existing) {
+            if ($existing) {
+                $query->where(fn ($sub) => $sub->where('is_active', true)->orWhere('id', $existing->category_id));
+            } else {
+                $query->where('is_active', true);
+            }
+        });
+
+        $unitRule = Rule::exists('units', 'id')->where(function ($query) use ($existing) {
+            if ($existing) {
+                $query->where(fn ($sub) => $sub->where('is_active', true)->orWhere('id', $existing->unit_id));
+            } else {
+                $query->where('is_active', true);
+            }
+        });
+
+        $rules = [
+            'name' => 'required|string|max:255',
+            'category_id' => ['required', 'integer', $categoryRule],
+            'unit_id' => ['required', 'integer', $unitRule],
+            'sku' => ['nullable', 'string', 'max:100', Rule::unique('inventory_items', 'sku')->ignore($existing?->id)],
+            'description' => 'nullable|string|max:2000',
+            'minimum_stock_level' => 'required|numeric|min:0|max:999999999.999',
+            'reorder_level' => 'nullable|numeric|min:0|max:999999999.999',
+        ];
+
+        if ($existing === null) {
+            $rules['current_quantity'] = 'required|numeric|min:0|max:999999999.999';
+        }
+
+        $validated = $request->validate($rules);
+
+        if ($existing === null) {
+            $validated['sku'] = $validated['sku'] ?? static::generateUniqueSku($validated['name']);
+            $validated['reorder_level'] = $validated['reorder_level'] ?? 0;
+            $validated['is_active'] = true;
+        } else {
+            // Never overwrite live stock via item editing; blank SKUs keep existing value.
+            unset($validated['current_quantity']);
+            $validated['sku'] = $validated['sku'] ?? $existing->sku;
+            $validated['reorder_level'] = $validated['reorder_level'] ?? $existing->reorder_level ?? 0;
+        }
+
+        return $validated;
+    }
+
     protected static function booted(): void
     {
-        static::saved(fn () => Cache::forget('inventory.urgent_alert_count'));
-        static::deleted(fn () => Cache::forget('inventory.urgent_alert_count'));
+        static::saved(fn () => \App\Services\StockNotificationService::clearStockCache());
+        static::deleted(fn () => \App\Services\StockNotificationService::clearStockCache());
     }
 
     public static function cachedUrgentAlertCount(): int

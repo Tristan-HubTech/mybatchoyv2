@@ -15,13 +15,31 @@ import {
   FilterChips,
   FormField,
   PrimaryButton,
+  ScreenHeader,
 } from '../components/UI';
 
-export const SettingsProfileScreen: React.FC = () => {
+export interface SettingsLaunchRequest {
+  tab: 'profile' | 'business' | 'backup';
+  nonce: number;
+}
+
+export const SettingsProfileScreen: React.FC<{
+  launchRequest?: SettingsLaunchRequest | null;
+}> = ({ launchRequest }) => {
   const { user, logout, refreshProfile } = useAuth();
   const isOwner = user?.role === 'owner';
 
   const [tab, setTab] = useState<'profile' | 'business' | 'backup'>('profile');
+
+  useEffect(() => {
+    if (!launchRequest) return;
+    if (!isOwner && launchRequest.tab !== 'profile') {
+      setTab('profile');
+      return;
+    }
+    setTab(launchRequest.tab);
+    setError(null);
+  }, [launchRequest, isOwner]);
 
   // Profile fields
   const [name, setName] = useState(user?.name || '');
@@ -221,6 +239,18 @@ export const SettingsProfileScreen: React.FC = () => {
       }
       keyboardShouldPersistTaps="handled"
     >
+      <ScreenHeader
+        section="Account"
+        title={tab === 'business' ? 'Settings' : tab === 'backup' ? 'System & Backup' : 'My Profile'}
+        subtitle={
+          tab === 'business'
+            ? 'Configure business profile, timeouts, stock defaults, categories, and units.'
+            : tab === 'backup'
+            ? 'Review live system health and export database backup snapshots.'
+            : 'Update your personal information and security password.'
+        }
+      />
+
       <FilterChips
         options={tabs}
         selected={tab}

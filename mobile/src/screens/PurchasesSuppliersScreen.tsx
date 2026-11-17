@@ -18,9 +18,15 @@ import {
   FilterChips,
   FormField,
   PrimaryButton,
+  ScreenHeader,
   SearchBar,
   SkeletonList,
 } from '../components/UI';
+
+export interface PurchasesLaunchRequest {
+  tab: 'purchases' | 'new_purchase' | 'suppliers';
+  nonce: number;
+}
 
 const SUB_TABS = [
   { key: 'purchases', label: 'Supply Orders' },
@@ -34,8 +40,16 @@ interface DraftLineItem {
   unit_cost: string;
 }
 
-export const PurchasesSuppliersScreen: React.FC = () => {
+export const PurchasesSuppliersScreen: React.FC<{
+  launchRequest?: PurchasesLaunchRequest | null;
+}> = ({ launchRequest }) => {
   const [tab, setTab] = useState<'purchases' | 'new_purchase' | 'suppliers'>('purchases');
+
+  useEffect(() => {
+    if (!launchRequest) return;
+    setTab(launchRequest.tab);
+    setError(null);
+  }, [launchRequest]);
 
   const [purchases, setPurchases] = useState<PurchaseModel[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierModel[]>([]);
@@ -259,12 +273,11 @@ export const PurchasesSuppliersScreen: React.FC = () => {
         }
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{ marginBottom: 10 }}>
-          <Text style={[styles.cardTitle, { fontSize: 18 }]}>Manage Suppliers &amp; Supply Orders</Text>
-          <Text style={styles.cardSub}>
-            Save supplier contacts and record deliveries to automatically add stock.
-          </Text>
-        </View>
+        <ScreenHeader
+          section="Purchasing"
+          title="Suppliers & Purchases"
+          subtitle="Save supplier contacts and record deliveries to update inventory stock automatically."
+        />
 
         <FilterChips
           options={SUB_TABS}

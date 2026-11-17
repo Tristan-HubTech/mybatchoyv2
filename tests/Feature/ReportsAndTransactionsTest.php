@@ -97,12 +97,22 @@ class ReportsAndTransactionsTest extends TestCase
         $response->assertSee('System Diagnostics');
         $response->assertSee('Database Tables Inventory');
 
-        $sqlResponse = $this->actingAs($this->owner)->get(route('owner.backup.download'));
+        $this->actingAs($this->owner)
+            ->post(route('owner.backup.download'), ['current_password' => 'WrongPassword1!'])
+            ->assertSessionHasErrors('current_password');
+
+        $sqlResponse = $this->actingAs($this->owner)->post(route('owner.backup.download'), [
+            'current_password' => 'Password123!',
+        ]);
         $sqlResponse->assertOk();
         $this->assertTrue(str_contains($sqlResponse->headers->get('content-type'), 'application/sql'));
         $sqlResponse->streamedContent();
 
         $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $this->owner->id,
+            'action' => 'database_backup_downloaded',
+        ]);
+        $this->assertDatabaseMissing('technical_audit_logs', [
             'user_id' => $this->owner->id,
             'action' => 'database_backup_downloaded',
         ]);
@@ -116,7 +126,9 @@ class ReportsAndTransactionsTest extends TestCase
     {
         $this->item->update(['description' => "Owner's sample \\\\ inventory"]);
 
-        $response = $this->actingAs($this->owner)->get(route('owner.backup.download'));
+        $response = $this->actingAs($this->owner)->post(route('owner.backup.download'), [
+            'current_password' => 'Password123!',
+        ]);
         $backupSql = $response->streamedContent();
         $restorePath = tempnam(sys_get_temp_dir(), 'mybatchoy-restore-');
         $this->assertNotFalse($restorePath);

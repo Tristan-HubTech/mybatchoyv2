@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
-// use Illuminate\Support\Facades\Gate;
+use App\Models\User;
+use App\Services\PermissionService;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -25,6 +27,20 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        //
+        foreach (array_keys(PermissionService::GROUPS) as $group) {
+            Gate::define($group, static fn (User $user): bool => PermissionService::allows($user, $group));
+        }
+
+        Gate::define('view-business-scope', static function (User $user, string $scope): bool {
+            if ($user->isOwner()) {
+                return true;
+            }
+
+            if ($user->isSystemAdmin()) {
+                return PermissionService::hasActiveBusinessAccessGrant($user, $scope) !== null;
+            }
+
+            return false;
+        });
     }
 }

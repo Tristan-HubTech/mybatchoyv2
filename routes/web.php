@@ -1,23 +1,31 @@
 <?php
 
+use App\Http\Controllers\AppDownloadController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\BusinessAccessRequestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryItemController;
 use App\Http\Controllers\InventorySettingsController;
+use App\Http\Controllers\OwnerSupplierAccountController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StockAdjustmentRequestController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierPortalController;
+use App\Http\Controllers\SystemAdminController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DashboardController::class, 'index'])->name('home');
 Route::get('/home', [DashboardController::class, 'index']);
+Route::get('/download/mybatchoy.apk', [AppDownloadController::class, 'downloadApk'])->name('app.download');
+Route::get('/media/business-logo', [AppDownloadController::class, 'serveLogo'])->name('media.logo');
 Route::redirect('/about', '/login')->name('about');
 Route::redirect('/contact', '/login')->name('contact');
 Route::redirect('/menu', '/login')->name('menu');
@@ -57,6 +65,21 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
         Route::get('/owner/purchases', [PurchaseController::class, 'index'])->name('owner.purchases.index');
         Route::get('/owner/purchases/create', [PurchaseController::class, 'create'])->name('owner.purchases.create');
         Route::post('/owner/purchases', [PurchaseController::class, 'store'])->name('owner.purchases.store');
+        Route::post('/owner/purchases/{purchase}/receive', [PurchaseController::class, 'markReceived'])->name('owner.purchases.receive');
+
+        Route::get('/owner/stock-adjustments', [StockAdjustmentRequestController::class, 'ownerIndex'])->name('owner.adjustments.index');
+        Route::post('/owner/stock-adjustments/{adjustmentRequest}/approve', [StockAdjustmentRequestController::class, 'approve'])->name('owner.adjustments.approve');
+        Route::post('/owner/stock-adjustments/{adjustmentRequest}/reject', [StockAdjustmentRequestController::class, 'reject'])->name('owner.adjustments.reject');
+
+        Route::get('/owner/supplier-accounts', [OwnerSupplierAccountController::class, 'index'])->name('owner.supplier-accounts.index');
+        Route::post('/owner/supplier-accounts', [OwnerSupplierAccountController::class, 'store'])->name('owner.supplier-accounts.store');
+        Route::patch('/owner/supplier-accounts/{supplierAccount}/status', [OwnerSupplierAccountController::class, 'updateStatus'])->name('owner.supplier-accounts.status');
+        Route::put('/owner/supplier-accounts/{supplierAccount}/password', [OwnerSupplierAccountController::class, 'resetPassword'])->name('owner.supplier-accounts.password');
+
+        Route::get('/owner/access-requests', [BusinessAccessRequestController::class, 'index'])->name('owner.access.index');
+        Route::post('/owner/access-requests/{accessRequest}/approve', [BusinessAccessRequestController::class, 'approve'])->name('owner.access.approve');
+        Route::post('/owner/access-requests/{accessRequest}/reject', [BusinessAccessRequestController::class, 'reject'])->name('owner.access.reject');
+        Route::post('/owner/access-requests/{accessRequest}/revoke', [BusinessAccessRequestController::class, 'revoke'])->name('owner.access.revoke');
 
         Route::get('/owner/transactions', [TransactionController::class, 'index'])->name('owner.transactions.index');
         Route::get('/owner/transactions/stock-in', [TransactionController::class, 'stockInForm'])->name('owner.transactions.stockIn');
@@ -80,6 +103,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
         Route::put('/owner/staff/{staff}/password', [StaffController::class, 'resetPassword'])->name('owner.staff.password');
         Route::get('/owner/settings', [SettingsController::class, 'index'])->name('owner.settings.index');
         Route::put('/owner/settings', [SettingsController::class, 'update'])->name('owner.settings.update');
+        Route::post('/owner/settings/mobile-apk', [AppDownloadController::class, 'uploadApk'])->name('owner.settings.apk.upload');
         Route::post('/owner/settings/security/mfa-challenge', [SettingsController::class, 'sendMfaChallenge'])->name('owner.settings.mfa.challenge');
         Route::post('/owner/settings/security/mfa-authenticator', [SettingsController::class, 'configureAuthenticator'])->name('owner.settings.mfa.configure');
         Route::delete('/owner/settings/security/mfa-authenticator', [SettingsController::class, 'disableAuthenticator'])->name('owner.settings.mfa.disable');
@@ -96,7 +120,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
         Route::get('/owner/reports', [ReportController::class, 'index'])->name('owner.reports.index');
         Route::get('/owner/reports/export', [ReportController::class, 'exportCsv'])->name('owner.reports.export');
         Route::get('/owner/backup', [BackupController::class, 'index'])->name('owner.backup.index');
-        Route::get('/owner/backup/download', [BackupController::class, 'downloadBackup'])->name('owner.backup.download');
+        Route::post('/owner/backup/download', [BackupController::class, 'downloadBackup'])->name('owner.backup.download');
     });
 
     Route::middleware('role:staff')->group(function () {
@@ -112,5 +136,39 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
         Route::post('/staff/transactions/adjustment', [TransactionController::class, 'adjustment'])->name('staff.transactions.adjustmentStore');
         Route::get('/staff/transactions/spoilage', [TransactionController::class, 'spoilageForm'])->name('staff.transactions.spoilage');
         Route::post('/staff/transactions/spoilage', [TransactionController::class, 'spoilage'])->name('staff.transactions.spoilageStore');
+        Route::get('/staff/stock-adjustments', [StockAdjustmentRequestController::class, 'staffIndex'])->name('staff.adjustments.index');
+        Route::post('/staff/stock-adjustments', [StockAdjustmentRequestController::class, 'staffStore'])->name('staff.adjustments.store');
+    });
+
+    Route::middleware('role:system_admin')->prefix('admin')->name('sysadmin.')->group(function () {
+        Route::get('/dashboard', [SystemAdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/health', [SystemAdminController::class, 'health'])->name('health');
+        Route::get('/security', [SystemAdminController::class, 'security'])->name('security');
+        Route::put('/security/config', [SystemAdminController::class, 'updateSecurityConfig'])->name('security.update');
+        Route::post('/security/sessions/{user}/revoke', [SystemAdminController::class, 'revokeAdminSession'])->name('security.sessions.revoke');
+        Route::get('/backup', [BackupController::class, 'index'])->name('backup');
+        Route::post('/backup/download', [BackupController::class, 'downloadBackup'])->name('backup.download');
+        Route::get('/config', [SystemAdminController::class, 'config'])->name('config');
+        Route::put('/config', [SystemAdminController::class, 'updateConfig'])->name('config.update');
+        Route::get('/accounts', [SystemAdminController::class, 'accounts'])->name('accounts.index');
+        Route::post('/accounts', [SystemAdminController::class, 'storeAccount'])->name('accounts.store');
+        Route::patch('/accounts/{account}/status', [SystemAdminController::class, 'updateAccountStatus'])->name('accounts.status');
+        Route::get('/access-requests', [SystemAdminController::class, 'accessRequests'])->name('access.index');
+        Route::post('/access-requests', [SystemAdminController::class, 'storeAccessRequest'])->name('access.store');
+        Route::get('/access-requests/{accessRequest}/view', [SystemAdminController::class, 'viewGrantedBusinessData'])->name('access.view');
+    });
+
+    Route::middleware('permission:technical_administration')->group(function () {
+        Route::put('/technical-config', [SystemAdminController::class, 'updateConfig'])->name('technical.config.update');
+    });
+
+    Route::middleware('role:supplier')->prefix('supplier')->name('supplier.')->group(function () {
+        Route::get('/dashboard', [SupplierPortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('/orders', [SupplierPortalController::class, 'orders'])->name('orders.index');
+        Route::post('/orders/{purchase}/confirm', [SupplierPortalController::class, 'confirm'])->name('orders.confirm');
+        Route::post('/orders/{purchase}/reject', [SupplierPortalController::class, 'reject'])->name('orders.reject');
+        Route::patch('/orders/{purchase}/delivery', [SupplierPortalController::class, 'updateDelivery'])->name('orders.delivery');
+        Route::get('/profile', [SupplierPortalController::class, 'profile'])->name('profile');
+        Route::put('/profile', [SupplierPortalController::class, 'updateProfile'])->name('profile.update');
     });
 });

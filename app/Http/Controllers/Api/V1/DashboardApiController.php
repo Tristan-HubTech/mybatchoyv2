@@ -13,7 +13,48 @@ class DashboardApiController extends DashboardController
 {
     public function overview(Request $request): JsonResponse
     {
-        $user = $request->user()->loadMissing('role');
+        $user = $request->user()->loadMissing(['role', 'supplier']);
+        $roleName = $user->roleName();
+
+        if ($roleName === 'system_admin') {
+            \App\Services\PermissionService::expireElapsedGrants();
+
+            return response()->json([
+                'role' => 'system_admin',
+                'summary' => [
+                    'active_sessions' => \App\Models\UserActiveSession::count(),
+                    'pending_access_requests' => \App\Models\BusinessAccessRequest::where('system_admin_id', $user->id)->where('status', 'pending')->count(),
+                    'active_access_grants' => \App\Models\BusinessAccessRequest::activeGrants($user->id)->count(),
+                    'maintenance_mode' => \App\Services\ActiveSessionManager::hasTable('technical_settings')
+                        ? (bool) \App\Models\TechnicalSetting::current()->maintenance_mode
+                        : false,
+                ],
+                'recent_security_events' => \App\Services\ActiveSessionManager::hasTable('technical_audit_logs')
+                    ? \App\Models\TechnicalAuditLog::latest()->take(10)->get(['id', 'category', 'action', 'details', 'created_at'])
+                    : [],
+            ]);
+        }
+
+        if ($roleName === 'supplier') {
+            $supplierId = (int) ($user->supplier_id ?? 0);
+            $ordersQuery = Purchase::where('supplier_id', $supplierId);
+
+            return response()->json([
+                'role' => 'supplier',
+                'supplier_name' => $user->supplier?->name,
+                'summary' => [
+                    'pending_orders' => (clone $ordersQuery)->where('supplier_status', 'pending')->count(),
+                    'confirmed_orders' => (clone $ordersQuery)->where('supplier_status', 'confirmed')->count(),
+                    'delivered_orders' => (clone $ordersQuery)->where('delivery_status', 'delivered')->count(),
+                    'total_orders' => (clone $ordersQuery)->count(),
+                ],
+                'recent_orders' => (clone $ordersQuery)
+                    ->latest('purchase_date')
+                    ->take(8)
+                    ->get(['id', 'purchase_number', 'purchase_date', 'supplier_status', 'delivery_status', 'invoice_number', 'total_amount']),
+            ]);
+        }
+
         [$startDate, $endDate, $rangeKey, $rangeLabel] = $this->resolveDateRange($request);
 
         [$totalItemsCount, $inStockCount, $lowStockCount, $outOfStockCount] = $this->getInventorySummaryCounts();
@@ -38,7 +79,8 @@ class DashboardApiController extends DashboardController
         $isOwner = $user->isOwner();
 
         if ($isOwner) {
-            $purchaseStats = Purchase::where('purchase_date', '>=', $startDate->format('Y-m-d'))
+            $purchaseStats = Purchase::realized()
+                ->where('purchase_date', '>=', $startDate->format('Y-m-d'))
                 ->where('purchase_date', '<=', $endDate->format('Y-m-d 23:59:59'))
                 ->selectRaw('COALESCE(SUM(total_amount), 0) as total_expenses, COUNT(*) as purchases_count')
                 ->first();

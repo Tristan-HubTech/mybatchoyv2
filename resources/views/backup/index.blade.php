@@ -3,18 +3,55 @@
 @section('title', 'Database Backup')
 
 @section('content')
+@php
+    $isSysAdmin = auth()->user()?->isSystemAdmin();
+    $backRoute = $isSysAdmin ? route('sysadmin.dashboard') : route('owner.settings.index');
+    $backLabel = $isSysAdmin ? '← Back to Technical Dashboard' : '← Back to Settings';
+    $downloadRoute = $isSysAdmin ? route('sysadmin.backup.download') : route('owner.backup.download');
+@endphp
+
 <x-page-header
-    section="Administration"
-    breadcrumb="Settings"
+    :section="$isSysAdmin ? 'System Operations' : 'Administration'"
+    :breadcrumb="$isSysAdmin ? 'Backups' : 'Settings'"
     title="Database Backup &amp; System Health"
     subtitle="Inspect database health metrics, review recent exports, and download an SQL database backup.">
     <x-slot:actions>
-        <a href="{{ route('owner.settings.index') }}" class="btn btn-outline-light">&larr; Back to Settings</a>
-        <a href="{{ route('owner.backup.download') }}" class="btn btn-primary">Download SQL Backup</a>
+        <a href="{{ $backRoute }}" class="btn btn-outline-light">{{ $backLabel }}</a>
+        <a href="#verified-backup-form" class="btn btn-primary">Download SQL Backup</a>
     </x-slot:actions>
 </x-page-header>
 
 <x-alert-banner />
+
+<div id="verified-backup-form" class="eb-panel-card mb-4">
+    <div class="eb-panel-header">
+        <div>
+            <h2 class="h6 fw-bold mb-0 text-white">
+                {{ $isSysAdmin ? 'Technical Infrastructure SQL Backup' : 'Business Database SQL Backup' }}
+            </h2>
+            <div class="small muted mt-1">
+                {{ $isSysAdmin
+                    ? 'Exports database schema DDL and technical configuration/logs only. User credentials, password hashes, MFA secrets, tokens, sessions, and confidential business data are excluded.'
+                    : 'Exports full business schema and operational inventory/purchasing records (ephemeral tokens and active sessions excluded).' }}
+            </div>
+        </div>
+    </div>
+    <div class="eb-panel-body">
+        <form method="POST" action="{{ $downloadRoute }}" class="row g-3 align-items-end">
+            @csrf
+            <div class="col-md-7 col-lg-5">
+                <label class="form-label" for="backupCurrentPassword">Confirm Your Password <span class="required-star">*</span></label>
+                <input id="backupCurrentPassword" type="password" name="current_password" class="form-control @error('current_password') is-invalid @enderror" placeholder="Enter your account password to export SQL" required autocomplete="current-password">
+                @error('current_password')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+            <div class="col-md-5 col-lg-4">
+                <button type="submit" class="btn btn-primary w-100">Verify Password &amp; Download SQL</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <h2 class="h6 fw-bold text-uppercase mb-3" style="color: #BDBDBD; letter-spacing: 0.06em;">System Diagnostics</h2>
 <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3 mb-4">
@@ -84,8 +121,8 @@
             @if ($backupHistory->isEmpty())
                 <x-empty-state
                     title="No exports recorded yet"
-                    description="Click Download SQL Backup to save a full copy of your inventory database."
-                    :actionUrl="route('owner.backup.download')"
+                    description="Enter your password above and click Verify Password &amp; Download SQL to generate a backup."
+                    actionUrl="#verified-backup-form"
                     actionLabel="Download SQL Backup" />
             @else
                 <div class="table-responsive">
@@ -115,7 +152,7 @@
     <div class="col-lg-6">
         <x-table-card title="Database Tables Inventory">
             <x-slot:headerActions>
-                <a href="{{ route('owner.backup.download') }}" class="eb-panel-action">Export SQL &rarr;</a>
+                <a href="#verified-backup-form" class="eb-panel-action">Verify &amp; Export SQL &rarr;</a>
             </x-slot:headerActions>
 
             @if (empty($tables))

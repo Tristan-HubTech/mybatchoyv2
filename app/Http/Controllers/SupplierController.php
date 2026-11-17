@@ -15,8 +15,8 @@ class SupplierController extends Controller
         ]);
 
         $suppliers = Supplier::query()
-            ->withCount('purchases')
-            ->withSum('purchases as total_spent', 'total_amount')
+            ->withCount(['purchases as purchases_count' => fn ($q) => $q->realized()])
+            ->withSum(['purchases as total_spent' => fn ($q) => $q->realized()], 'total_amount')
             ->with(['purchases' => function ($q) {
                 $q->latest('purchase_date')->take(5);
             }]);

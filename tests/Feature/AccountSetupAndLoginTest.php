@@ -8,9 +8,15 @@ use App\Models\InventoryTransaction;
 use App\Models\Purchase;
 use App\Models\Role;
 use App\Models\Supplier;
+use App\Models\TechnicalSetting;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\InventorySeeder;
+use Database\Seeders\OwnerSeeder;
+use Database\Seeders\ProductionSeeder;
 use Database\Seeders\RoleSeeder;
+use Database\Seeders\StaffSeeder;
+use Database\Seeders\TestDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -56,7 +62,7 @@ class AccountSetupAndLoginTest extends TestCase
     {
         $this->seed(RoleSeeder::class);
 
-        $this->assertSame(2, Role::count());
+        $this->assertSame(4, Role::count());
         $this->assertSame(0, User::count());
     }
 
@@ -243,5 +249,59 @@ class AccountSetupAndLoginTest extends TestCase
         $this->assertGreaterThanOrEqual(5, Purchase::count());
         $this->assertGreaterThanOrEqual(10, InventoryTransaction::count());
         $this->assertNotNull(BusinessSetting::find(1));
+    }
+
+    public function test_production_seeder_creates_only_roles_and_baseline_settings_idempotently(): void
+    {
+        $this->artisan('db:seed', ['--class' => ProductionSeeder::class, '--force' => true])
+            ->assertExitCode(0);
+
+        // Run a second time to verify idempotency.
+        $this->artisan('db:seed', ['--class' => ProductionSeeder::class, '--force' => true])
+            ->assertExitCode(0);
+
+        $this->assertSame(4, Role::count());
+        $this->assertNotNull(BusinessSetting::find(1));
+        $this->assertNotNull(TechnicalSetting::find(1));
+        $this->assertSame(0, User::count());
+        $this->assertSame(0, Supplier::count());
+        $this->assertSame(0, InventoryItem::count());
+        $this->assertSame(0, Purchase::count());
+        $this->assertSame(0, InventoryTransaction::count());
+    }
+
+    public function test_database_seeder_skips_demo_seeders_and_demo_seeders_abort_in_production(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+
+        try {
+            $this->artisan('db:seed', ['--class' => DatabaseSeeder::class, '--force' => true])
+                ->assertExitCode(0);
+
+            $this->assertSame(4, Role::count());
+            $this->assertNotNull(BusinessSetting::find(1));
+            $this->assertNotNull(TechnicalSetting::find(1));
+            $this->assertSame(0, User::count());
+            $this->assertSame(0, Supplier::count());
+            $this->assertSame(0, InventoryItem::count());
+
+            foreach ([
+                OwnerSeeder::class,
+                StaffSeeder::class,
+                InventorySeeder::class,
+                TestDataSeeder::class,
+            ] as $seederClass) {
+                $thrown = false;
+                try {
+                    (new $seederClass())->setContainer($this->app)->run();
+                } catch (\RuntimeException $exception) {
+                    $thrown = true;
+                }
+
+                $this->assertTrue($thrown, "{$seederClass} must throw RuntimeException in production.");
+            }
+        } finally {
+            $this->app->detectEnvironment(fn () => 'testing');
+        }
     }
 }

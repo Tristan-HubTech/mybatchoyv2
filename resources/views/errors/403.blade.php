@@ -15,12 +15,12 @@
                     <span class="eb-section-pill mb-2">403 &bull; Access Restricted</span>
                     <h1 class="h3 fw-bold text-white mb-2">Access Restricted</h1>
                     <p class="small mb-4" style="color: #BDBDBD; font-size: 0.98rem;">
-                        Only the <strong class="text-white">Owner / Admin</strong> account is allowed to open this page or perform this action.
-                        If you need help with this task, please ask the business owner.
+                        Your account role does not have permission to open this page or perform this action.
+                        Contact your administrator or business owner if you believe this is unexpected.
                     </p>
                     <div class="d-flex flex-wrap justify-content-center gap-2">
                         @auth
-                            <a href="{{ auth()->user()?->role?->name === 'owner' ? route('owner.dashboard') : route('staff.dashboard') }}"
+                            <a href="{{ route(auth()->user()->dashboardRouteName()) }}"
                                class="btn btn-primary btn-lg">
                                 &larr; Back to Dashboard
                             </a>

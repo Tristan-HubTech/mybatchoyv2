@@ -21,7 +21,11 @@
     <a href="{{ route($routePrefix . '.transactions.index') }}" class="eb-tab-link">Stock History</a>
     <a href="{{ route($routePrefix . '.transactions.stockIn') }}" class="eb-tab-link">+ Add Stock</a>
     <a href="{{ route($routePrefix . '.transactions.stockOut') }}" class="eb-tab-link active">- Remove Stock</a>
-    <a href="{{ route($routePrefix . '.transactions.adjustment') }}" class="eb-tab-link">Correct Stock Quantity</a>
+    @if ($routePrefix === 'owner')
+        <a href="{{ route('owner.transactions.adjustment') }}" class="eb-tab-link">Correct Stock Quantity</a>
+    @else
+        <a href="{{ route('staff.adjustments.index') }}" class="eb-tab-link">Request Stock Adjustment</a>
+    @endif
     <a href="{{ route($routePrefix . '.transactions.spoilage') }}" class="eb-tab-link">Record Spoilage</a>
 </div>
 

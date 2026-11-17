@@ -17,11 +17,7 @@ class DashboardController extends Controller
             return redirect()->route('login');
         }
 
-        if (\App\Models\Role::cachedNameById(Auth::user()->role_id) === 'owner') {
-            return redirect()->route('owner.dashboard');
-        }
-
-        return redirect()->route('staff.dashboard');
+        return redirect()->route(Auth::user()->dashboardRouteName());
     }
 
     protected function getInventorySummaryCounts(): array
@@ -280,7 +276,8 @@ class DashboardController extends Controller
 
     protected function buildPurchasesTimeline(Carbon $startDate, Carbon $endDate): array
     {
-        $rows = Purchase::select(['purchase_date', 'total_amount'])
+        $rows = Purchase::realized()
+            ->select(['purchase_date', 'total_amount'])
             ->where('purchase_date', '>=', $startDate->format('Y-m-d'))
             ->where('purchase_date', '<=', $endDate->format('Y-m-d 23:59:59'))
             ->get();

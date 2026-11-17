@@ -19,6 +19,7 @@ import {
   FilterChips,
   FormField,
   PrimaryButton,
+  ScreenHeader,
   SearchBar,
   SkeletonList,
 } from '../components/UI';
@@ -28,6 +29,7 @@ export type ScreenMode = 'history' | 'stock_in' | 'stock_out' | 'adjustment' | '
 export interface TransactionLaunchRequest {
   mode: ScreenMode;
   itemId?: number;
+  typeFilter?: string;
   nonce: number;
 }
 
@@ -73,6 +75,7 @@ export const TransactionsScreen: React.FC<{
   launchRequest?: TransactionLaunchRequest | null;
 }> = ({ launchRequest }) => {
   const { user } = useAuth();
+  const isOwner = user?.role === 'owner';
   const [mode, setMode] = useState<ScreenMode>('history');
   const [transactions, setTransactions] = useState<StockTransactionModel[]>([]);
   const [items, setItems] = useState<InventoryItemModel[]>([]);
@@ -98,6 +101,9 @@ export const TransactionsScreen: React.FC<{
     setMode(launchRequest.mode);
     if (launchRequest.itemId) {
       setSelectedItemId(launchRequest.itemId);
+    }
+    if (launchRequest.typeFilter !== undefined) {
+      setTypeFilter(launchRequest.typeFilter);
     }
     setQuantity('');
     setReason('');
@@ -205,6 +211,11 @@ export const TransactionsScreen: React.FC<{
       return;
     }
 
+    if (mode === 'adjustment' && !isOwner && reason.trim().length < 5) {
+      setError('Please enter a reason of at least 5 characters for Owner approval.');
+      return;
+    }
+
     if (mode === 'stock_out' || mode === 'adjustment' || mode === 'spoilage') {
       setConfirmVisible(true);
     } else {
@@ -222,17 +233,24 @@ export const TransactionsScreen: React.FC<{
     const endpointMap: Record<Exclude<ScreenMode, 'history'>, string> = {
       stock_in: '/transactions/stock-in',
       stock_out: '/transactions/stock-out',
-      adjustment: '/transactions/adjustment',
+      adjustment: isOwner ? '/transactions/adjustment' : '/adjustment-requests',
       spoilage: '/transactions/spoilage',
     };
 
     const body =
       mode === 'adjustment'
-        ? {
-            inventory_item_id: selectedItem.id,
-            current_quantity: numVal,
-            reason: reason.trim(),
-          }
+        ? isOwner
+          ? {
+              inventory_item_id: selectedItem.id,
+              current_quantity: numVal,
+              reason: reason.trim(),
+            }
+          : {
+              inventory_item_id: selectedItem.id,
+              counted_quantity: numVal,
+              request_type: 'adjustment',
+              reason: reason.trim(),
+            }
         : {
             inventory_item_id: selectedItem.id,
             quantity: numVal,
@@ -280,12 +298,11 @@ export const TransactionsScreen: React.FC<{
       }
       keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>Stock Actions &amp; History</Text>
-        <Text style={styles.pageSubtitle}>
-          Add new deliveries, remove ingredients used in the kitchen, fix wrong counts, or check past activity.
-        </Text>
-      </View>
+      <ScreenHeader
+        section="Operations"
+        title="Stock Transactions"
+        subtitle="Add deliveries, remove kitchen usage, correct counts, or check history."
+      />
 
       <FilterChips
         options={MODE_TABS}
@@ -313,7 +330,9 @@ export const TransactionsScreen: React.FC<{
               : mode === 'stock_out'
               ? 'Use this when taking ingredients out for cooking, broth, or prep.'
               : mode === 'adjustment'
-              ? 'Use this after counting items on the shelf so the app matches the real amount.'
+              ? isOwner
+                ? 'Use this after counting items on the shelf so the app matches the real amount.'
+                : 'Submit a physical shelf count to the Owner for review before stock changes.'
               : 'Use this when food spoils, expires, or spills. Warning: This reduces available stock.'}
           </Text>
 
@@ -576,16 +595,20 @@ export const TransactionsScreen: React.FC<{
             ? 'Confirm Spoilage Record'
             : mode === 'stock_out'
             ? 'Confirm Stock Removal'
-            : 'Confirm Stock Correction'
+            : isOwner
+            ? 'Confirm Stock Correction'
+            : 'Submit Stock Adjustment Request'
         }
         message={
           mode === 'spoilage'
             ? `Record ${quantity} ${selectedItem?.unit_short_name} of ${selectedItem?.name} as spoiled? This reduces available stock from ${selectedItem?.current_quantity} to ${Math.max(0, (selectedItem?.current_quantity ?? 0) - Number(quantity || 0)).toFixed(2).replace(/\.00$/, '')} ${selectedItem?.unit_short_name}.`
             : mode === 'stock_out'
             ? `Remove ${quantity} ${selectedItem?.unit_short_name} of ${selectedItem?.name}? Remaining stock will be ${Math.max(0, (selectedItem?.current_quantity ?? 0) - Number(quantity || 0)).toFixed(2).replace(/\.00$/, '')} ${selectedItem?.unit_short_name}.`
-            : `Correct ${selectedItem?.name} count from ${selectedItem?.current_quantity} to ${quantity} ${selectedItem?.unit_short_name}? Reason: "${reason.trim()}".`
+            : isOwner
+            ? `Correct ${selectedItem?.name} count from ${selectedItem?.current_quantity} to ${quantity} ${selectedItem?.unit_short_name}? Reason: "${reason.trim()}".`
+            : `Send request to adjust ${selectedItem?.name} from ${selectedItem?.current_quantity} to ${quantity} ${selectedItem?.unit_short_name} for Owner approval? Reason: "${reason.trim()}".`
         }
-        confirmText="Confirm & Save"
+        confirmText={mode === 'adjustment' && !isOwner ? 'Submit Request' : 'Confirm & Save'}
         confirmVariant={mode === 'spoilage' || mode === 'stock_out' ? 'danger' : 'primary'}
         loading={submitting}
         onConfirm={executeTransaction}

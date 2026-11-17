@@ -183,4 +183,67 @@ class ForgotPasswordTest extends TestCase
             'password_confirmation' => 'AnotherPassword2026!',
         ])->assertSessionHasErrors('code');
     }
+
+    public function test_owner_mfa_and_password_reset_reject_log_failover_and_unconfigured_production_smtp(): void
+    {
+        $mfaService = app(\App\Services\OwnerMfaService::class);
+        $request = \Illuminate\Http\Request::create('/owner/settings/mfa/challenge', 'POST');
+
+        foreach (['log', 'failover'] as $unsafeMailer) {
+            config(['mail.default' => $unsafeMailer]);
+
+            $this->post(route('password.email'), ['email' => $this->user->email])
+                ->assertRedirect();
+            Mail::assertNothingSent();
+
+            $threw = false;
+            try {
+                $mfaService->issueEmailChallenge($this->user, $request, 'session_recovery');
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                $threw = array_key_exists('mfa_code', $e->errors());
+            }
+
+            $this->assertTrue($threw, "Expected OwnerMfaService to reject mailer [{$unsafeMailer}].");
+            $this->assertSame(0, \App\Models\OwnerMfaChallenge::count());
+        }
+
+        // Simulate APP_ENV=production with default mailpit host still left configured.
+        $this->app->detectEnvironment(fn () => 'production');
+        try {
+            config([
+                'mail.default' => 'smtp',
+                'mail.mailers.smtp.host' => 'mailpit',
+            ]);
+
+            $this->postJson('https://localhost/api/v1/auth/forgot-password', ['email' => $this->user->email])
+                ->assertOk();
+            Mail::assertNothingSent();
+            $this->assertDatabaseMissing('password_resets', ['email' => $this->user->email]);
+
+            $threwProd = false;
+            try {
+                $mfaService->issueEmailChallenge($this->user, $request, 'session_recovery');
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                $threwProd = array_key_exists('mfa_code', $e->errors());
+            }
+
+            $this->assertTrue($threwProd);
+            $this->assertSame(0, \App\Models\OwnerMfaChallenge::count());
+        } finally {
+            $this->app->detectEnvironment(fn () => 'testing');
+        }
+    }
+
+    public function test_technical_audit_logger_scrubs_otps_secrets_and_connection_urls(): void
+    {
+        $raw = 'otp=482910 mfa_code: 123456 "recovery_code":"998877" Bearer abc.def.ghi mysql://root:SuperSecret123@tidb.example:4000/db verification code is 654321';
+        $scrubbed = \App\Services\TechnicalAuditLogger::scrubSecrets($raw);
+
+        $this->assertStringNotContainsString('482910', $scrubbed);
+        $this->assertStringNotContainsString('123456', $scrubbed);
+        $this->assertStringNotContainsString('998877', $scrubbed);
+        $this->assertStringNotContainsString('abc.def.ghi', $scrubbed);
+        $this->assertStringNotContainsString('SuperSecret123', $scrubbed);
+        $this->assertStringNotContainsString('654321', $scrubbed);
+    }
 }

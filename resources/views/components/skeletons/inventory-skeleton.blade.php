@@ -1,5 +1,18 @@
 {{-- Reusable Inventory Skeleton Loader --}}
 <div class="skeleton-wrapper inventory-skeleton-placeholder" aria-hidden="true">
+    <!-- Page Header Skeleton -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="skeleton skeleton-shimmer mb-1" style="width: 90px; height: 14px;"></div>
+            <div class="skeleton skeleton-shimmer mb-1" style="width: 180px; height: 28px;"></div>
+            <div class="skeleton skeleton-shimmer" style="width: 320px; height: 14px;"></div>
+        </div>
+        <div class="d-flex gap-2">
+            <div class="skeleton skeleton-shimmer" style="width: 115px; height: 38px; border-radius: 8px;"></div>
+            <div class="skeleton skeleton-shimmer" style="width: 140px; height: 38px; border-radius: 8px;"></div>
+        </div>
+    </div>
+
     <!-- Toolbar & Filters Skeleton -->
     <div class="card p-3 mb-4 border-border">
         <div class="row g-3 align-items-end">

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\BusinessSetting;
+use App\Models\TechnicalSetting;
 use App\Models\User;
 use App\Services\ActiveSessionManager;
+use App\Services\TechnicalAuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -45,8 +47,17 @@ class LoginController extends Controller
         $usernameKey = $this->usernameRateLimitKey($identifier);
         $ipKey = 'login:ip:' . $request->ip();
 
-        if (RateLimiter::tooManyAttempts($usernameKey, self::USERNAME_MAX_ATTEMPTS)
+        $maxAttempts = self::USERNAME_MAX_ATTEMPTS;
+        $decaySeconds = self::DECAY_SECONDS;
+        if (ActiveSessionManager::hasTable('technical_settings')) {
+            $tech = TechnicalSetting::current();
+            $maxAttempts = max(3, (int) $tech->security_lockout_attempts);
+            $decaySeconds = max(60, (int) $tech->security_lockout_minutes * 60);
+        }
+
+        if (RateLimiter::tooManyAttempts($usernameKey, $maxAttempts)
             || RateLimiter::tooManyAttempts($ipKey, self::IP_MAX_ATTEMPTS)) {
+            TechnicalAuditLogger::record($request, null, 'security', 'login_rate_limited', "Web login throttled for identifier [{$identifier}].");
             throw ValidationException::withMessages([
                 'username' => ['Too many login attempts. Please try again later.'],
             ]);
@@ -55,8 +66,9 @@ class LoginController extends Controller
         $user = $this->resolveAuthenticatedUser($identifier, $password);
 
         if (!$user || !$user->is_active) {
-            RateLimiter::hit($usernameKey, self::DECAY_SECONDS);
-            RateLimiter::hit($ipKey, self::DECAY_SECONDS);
+            RateLimiter::hit($usernameKey, $decaySeconds);
+            RateLimiter::hit($ipKey, $decaySeconds);
+            TechnicalAuditLogger::record($request, $user?->id, 'security', 'login_failed', "Failed web login attempt for identifier [{$identifier}].");
 
             throw ValidationException::withMessages([
                 'username' => ['These credentials do not match our records.'],
@@ -72,6 +84,7 @@ class LoginController extends Controller
         RateLimiter::clear($ipKey);
 
         $user->update(['last_login_at' => now()]);
+        TechnicalAuditLogger::record($request, $user->id, 'security', 'login_success', "User {$user->username} ({$user->roleName()}) logged in via web.");
 
         return redirect()->intended($this->redirectTo());
     }
@@ -80,6 +93,7 @@ class LoginController extends Controller
     {
         $user = $request->user() ?? Auth::guard('web')->user();
         if ($user) {
+            TechnicalAuditLogger::record($request, $user->id, 'security', 'logout', "User {$user->username} logged out from web.");
             $sessions->releaseForWeb($user, $request);
         }
 
@@ -129,10 +143,8 @@ class LoginController extends Controller
 
     protected function redirectTo(): string
     {
-        if (Auth::guard('web')->user()?->role?->name === 'owner') {
-            return route('owner.dashboard');
-        }
+        $user = Auth::guard('web')->user();
 
-        return route('staff.dashboard');
+        return route($user ? $user->dashboardRouteName() : 'login');
     }
 }

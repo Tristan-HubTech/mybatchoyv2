@@ -18,6 +18,7 @@ import {
   FormField,
   MetricCard,
   PrimaryButton,
+  ScreenHeader,
   SkeletonList,
   StatusBadge,
 } from '../components/UI';
@@ -120,22 +121,21 @@ export const ReportsScreen: React.FC = () => {
         />
       }
     >
-      <View style={styles.topRow}>
-        <View style={{ flex: 1, paddingRight: 8 }}>
-          <Text style={styles.heading}>Stock &amp; Purchase Summary</Text>
-          <Text style={[styles.cardSub, { marginTop: 2 }]}>
-            Stock value, low items, activity, and supply costs. (Sales are not tracked here.)
-          </Text>
-        </View>
-        <PrimaryButton
-          title="Save CSV"
-          icon="download-outline"
-          variant="secondary"
-          onPress={handleExportCsv}
-          loading={exporting}
-          style={{ minHeight: 38, paddingVertical: 6 }}
-        />
-      </View>
+      <ScreenHeader
+        section="Analytics"
+        title="Operational Reports"
+        subtitle="Stock value, low items, activity, and supply costs."
+        rightElement={
+          <PrimaryButton
+            title="CSV"
+            icon="download-outline"
+            variant="secondary"
+            onPress={handleExportCsv}
+            loading={exporting}
+            style={{ minHeight: 38, paddingVertical: 6, paddingHorizontal: 11 }}
+          />
+        }
+      />
 
       <View style={styles.dateFilterRow}>
         <View style={{ flex: 1, marginRight: 8 }}>
@@ -173,7 +173,13 @@ export const ReportsScreen: React.FC = () => {
               })}`}
               icon="cash-outline"
               accentColor={COLORS.secondary}
-              subtitle="Based on unit costs"
+              subtitle={
+                summary.valuation_status === 'partial'
+                  ? `Partial: ${summary.valued_items_count ?? 0} valued, ${summary.unknown_cost_items_count ?? 0} unknown excluded`
+                  : summary.valuation_status === 'unvalued'
+                  ? `No verified costs yet (${summary.unknown_cost_items_count ?? 0} unknown)`
+                  : 'Verified purchase costs only'
+              }
             />
             <MetricCard
               label="Supply Spend"

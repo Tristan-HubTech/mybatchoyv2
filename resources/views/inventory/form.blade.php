@@ -73,9 +73,21 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label" for="item-qty">Starting / Current Stock <span class="text-danger">*</span></label>
-                            <input id="item-qty" type="number" step="0.001" min="0" class="form-control" name="current_quantity" value="{{ old('current_quantity', $item->current_quantity ?? 0) }}" required>
-                            <div class="form-text">Total quantity currently sitting on the shelf or in the freezer.</div>
+                            <label class="form-label" for="item-qty">
+                                {{ $isEdit ? 'Current Stock on Hand (Locked)' : 'Starting / Current Stock' }}
+                                @unless ($isEdit) <span class="text-danger">*</span> @endunless
+                            </label>
+                            @if ($isEdit)
+                                <input id="item-qty" type="text" class="form-control" value="{{ number_format((float) $item->current_quantity, 3) }} {{ $item->unit?->short_name ?? 'units' }}" disabled readonly>
+                                <div class="form-text">
+                                    Stock quantity cannot be overwritten while editing item details. Use
+                                    <a href="{{ route('owner.transactions.stockIn', ['item' => $item->id]) }}" class="text-warning text-decoration-underline">Stock Transactions</a>
+                                    to preserve an audit trail.
+                                </div>
+                            @else
+                                <input id="item-qty" type="number" step="0.001" min="0" class="form-control" name="current_quantity" value="{{ old('current_quantity', 0) }}" required>
+                                <div class="form-text">Total quantity currently sitting on the shelf or in the freezer.</div>
+                            @endif
                         </div>
 
                         <div class="col-md-6">

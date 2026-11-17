@@ -17,12 +17,21 @@ class EnsureAccountIsActive
     {
         $user = $request->user();
 
-        if ($user && !$user->is_active) {
+        $supplierBlocked = $user && $user->isSupplier() && (
+            !$user->supplier_id
+            || !$user->supplier()->where('is_active', true)->exists()
+        );
+
+        if (($user && !$user->is_active) || $supplierBlocked) {
             $this->sessions->invalidateAllForUser($user);
+
+            $inactiveMessage = $supplierBlocked
+                ? 'Your linked supplier profile is inactive or missing. Contact the owner for assistance.'
+                : 'This account is inactive. Contact the owner for assistance.';
 
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json([
-                    'message' => 'This account is inactive. Contact the owner for assistance.',
+                    'message' => $inactiveMessage,
                 ], 403);
             }
 
@@ -31,7 +40,7 @@ class EnsureAccountIsActive
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
-                'username' => 'This account is inactive. Contact the owner for assistance.',
+                'username' => $inactiveMessage,
             ]);
         }
 

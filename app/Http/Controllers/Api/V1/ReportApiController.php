@@ -7,38 +7,27 @@ use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\Purchase;
-use App\Models\PurchaseItem;
+use App\Services\InventoryCsvExporter;
+use App\Services\InventoryValuationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportApiController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, InventoryValuationService $valuationService): JsonResponse
     {
         $validated = $request->validate([
             'from' => 'nullable|date',
             'to' => 'nullable|date|after_or_equal:from',
+            'per_page' => 'nullable|integer|min:10|max:200',
+            'page' => 'nullable|integer|min:1',
         ]);
 
-        $items = InventoryItem::with(['category', 'unit'])->get();
+        $perPage = (int) ($validated['per_page'] ?? 100);
+        $valuation = $valuationService->computeDatabaseValuation();
 
-        // Single subquery for latest purchase unit_cost per inventory_item_id
-        $latestPrices = PurchaseItem::select('inventory_item_id', 'unit_cost')
-            ->whereIn('id', function ($query) {
-                $query->select(DB::raw('MAX(id)'))
-                    ->from('purchase_items')
-                    ->groupBy('inventory_item_id');
-            })
-            ->pluck('unit_cost', 'inventory_item_id');
-
-        $inventoryValue = $items->sum(function ($item) use ($latestPrices) {
-            $cost = $latestPrices[$item->id] ?? 85.00;
-            return (float) $item->current_quantity * (float) $cost;
-        });
-
-        $purchasesQuery = Purchase::query();
+        $purchasesQuery = Purchase::realized();
         $transactionsQuery = InventoryTransaction::query();
 
         if (!empty($validated['from'])) {
@@ -51,7 +40,8 @@ class ReportApiController extends Controller
         }
 
         $totalPurchases = (float) (clone $purchasesQuery)->sum('total_amount');
-        $monthlyPurchases = (float) Purchase::whereMonth('purchase_date', now()->month)
+        $monthlyPurchases = (float) Purchase::realized()
+            ->whereMonth('purchase_date', now()->month)
             ->whereYear('purchase_date', now()->year)
             ->sum('total_amount');
 
@@ -66,11 +56,24 @@ class ReportApiController extends Controller
         $totalSpoilageQty = (float) ($txSums['spoilage'] ?? 0);
         $totalStockInQty = (float) ($txSums['stock_in'] ?? 0);
 
-        $lowStockItems = $items->filter(fn ($item) => $item->current_quantity > 0 && $item->current_quantity <= $item->minimum_stock_level)
+        $lowStockBase = InventoryItem::with(['category:id,name', 'unit:id,name,short_name'])
+            ->where('current_quantity', '>', 0)
+            ->whereColumn('current_quantity', '<=', 'minimum_stock_level');
+        $outOfStockBase = InventoryItem::with(['category:id,name', 'unit:id,name,short_name'])
+            ->where('current_quantity', '<=', 0);
+
+        $lowStockCount = (clone $lowStockBase)->count();
+        $outOfStockCount = (clone $outOfStockBase)->count();
+
+        $lowStockItems = $lowStockBase->orderBy('current_quantity')
+            ->take(100)
+            ->get()
             ->map(fn (InventoryItem $item) => InventoryApiController::formatItem($item))
             ->values();
 
-        $outOfStockItems = $items->filter(fn ($item) => $item->current_quantity <= 0)
+        $outOfStockItems = $outOfStockBase->orderBy('name')
+            ->take(100)
+            ->get()
             ->map(fn (InventoryItem $item) => InventoryApiController::formatItem($item))
             ->values();
 
@@ -98,19 +101,32 @@ class ReportApiController extends Controller
             ->get()
             ->map(fn (InventoryTransaction $tx) => TransactionApiController::formatTransaction($tx));
 
+        $itemsPaginator = InventoryItem::with(['category:id,name', 'unit:id,name,short_name'])
+            ->latest('id')
+            ->paginate($perPage);
+
         return response()->json([
             'summary' => [
-                'inventory_value' => round((float) $inventoryValue, 2),
+                'inventory_value' => $valuation['inventory_value'],
+                'valued_items_count' => $valuation['valued_items_count'],
+                'unknown_cost_items_count' => $valuation['unknown_cost_items_count'],
+                'valuation_status' => $valuation['valuation_status'],
                 'total_purchases' => round($totalPurchases, 2),
                 'monthly_purchases' => round($monthlyPurchases, 2),
                 'total_usage_qty' => round($totalUsageQty, 3),
                 'total_spoilage_qty' => round($totalSpoilageQty, 3),
                 'total_stock_in_qty' => round($totalStockInQty, 3),
-                'total_items_count' => $items->count(),
-                'low_stock_count' => $lowStockItems->count(),
-                'out_of_stock_count' => $outOfStockItems->count(),
+                'total_items_count' => $valuation['total_items_count'],
+                'low_stock_count' => $lowStockCount,
+                'out_of_stock_count' => $outOfStockCount,
             ],
-            'items' => $items->map(fn (InventoryItem $item) => InventoryApiController::formatItem($item))->values(),
+            'items' => $itemsPaginator->getCollection()->map(fn (InventoryItem $item) => InventoryApiController::formatItem($item))->values(),
+            'pagination' => [
+                'current_page' => $itemsPaginator->currentPage(),
+                'last_page' => $itemsPaginator->lastPage(),
+                'per_page' => $itemsPaginator->perPage(),
+                'total' => $itemsPaginator->total(),
+            ],
             'low_stock_items' => $lowStockItems,
             'out_of_stock_items' => $outOfStockItems,
             'categories' => $categories,
@@ -121,45 +137,6 @@ class ReportApiController extends Controller
 
     public function exportCsv(): StreamedResponse
     {
-        $fileName = 'mybatchoy_inventory_report_' . now()->format('Y-m-d') . '.csv';
-        $items = InventoryItem::with(['category', 'unit'])->get();
-
-        $sanitizeCsvCell = static function ($value): string {
-            $cell = (string) ($value ?? '');
-            if ($cell !== '' && in_array($cell[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
-                return "'" . $cell;
-            }
-            return $cell;
-        };
-
-        return response()->streamDownload(function () use ($items, $sanitizeCsvCell) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['SKU', 'Item Name', 'Category', 'Unit', 'Current Qty', 'Min Stock', 'Reorder Level', 'Status']);
-
-            foreach ($items as $item) {
-                $status = 'Normal';
-                if ($item->current_quantity <= 0) {
-                    $status = 'Out of Stock';
-                } elseif ($item->current_quantity <= $item->minimum_stock_level) {
-                    $status = 'Low Stock';
-                }
-
-                fputcsv($handle, [
-                    $sanitizeCsvCell($item->sku),
-                    $sanitizeCsvCell($item->name),
-                    $sanitizeCsvCell($item->category?->name ?? 'N/A'),
-                    $sanitizeCsvCell($item->unit?->short_name ?? 'N/A'),
-                    $item->current_quantity,
-                    $item->minimum_stock_level,
-                    $item->reorder_level,
-                    $status,
-                ]);
-            }
-
-            fclose($handle);
-        }, $fileName, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
-        ]);
+        return InventoryCsvExporter::streamInventoryReport();
     }
 }

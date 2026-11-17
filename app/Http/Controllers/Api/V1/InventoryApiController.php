@@ -22,11 +22,14 @@ class InventoryApiController extends Controller
             'search' => 'nullable|string|max:100',
             'category' => 'nullable|integer|exists:inventory_categories,id',
             'status' => 'nullable|string|in:available,low_stock,out_of_stock',
+            'per_page' => 'nullable|integer|min:1|max:200',
+            'page' => 'nullable|integer|min:1',
         ]);
 
         $search = trim((string) ($validated['search'] ?? ''));
+        $perPage = (int) ($validated['per_page'] ?? 100);
 
-        $query = InventoryItem::with(['category', 'unit'])
+        $query = InventoryItem::with(['category:id,name', 'unit:id,name,short_name'])
             ->select('inventory_items.*')
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($subQuery) use ($search) {
@@ -46,14 +49,21 @@ class InventoryApiController extends Controller
                 } elseif ($validated['status'] === 'available') {
                     $q->whereColumn('inventory_items.current_quantity', '>', 'inventory_items.minimum_stock_level');
                 }
-            })
-            ->distinct();
+            });
 
-        $items = $query->latest('inventory_items.created_at')->get();
+        $paginator = $query->latest('inventory_items.created_at')
+            ->latest('inventory_items.id')
+            ->paginate($perPage);
         $settings = BusinessSetting::find(1);
 
         return response()->json([
-            'items' => $items->map(fn (InventoryItem $item) => self::formatItem($item))->values(),
+            'items' => $paginator->getCollection()->map(fn (InventoryItem $item) => self::formatItem($item))->values(),
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
             'categories' => InventoryCategory::orderBy('name')->get()->map(fn (InventoryCategory $cat) => [
                 'id' => $cat->id,
                 'name' => $cat->name,
@@ -97,27 +107,7 @@ class InventoryApiController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category_id' => 'required|exists:inventory_categories,id',
-            'unit_id' => 'required|exists:units,id',
-            'sku' => 'nullable|string|max:100|unique:inventory_items,sku',
-            'description' => 'nullable|string|max:2000',
-            'current_quantity' => 'required|numeric|min:0|max:999999999.999',
-            'minimum_stock_level' => 'required|numeric|min:0|max:999999999.999',
-            'reorder_level' => 'nullable|numeric|min:0|max:999999999.999',
-        ]);
-
-        $sku = trim((string) ($validated['sku'] ?? ''));
-        if ($sku === '') {
-            do {
-                $sku = strtoupper(Str::slug($validated['name']) . '-' . random_int(100, 999));
-            } while (InventoryItem::where('sku', $sku)->exists());
-        }
-
-        $validated['sku'] = $sku;
-        $validated['reorder_level'] = $validated['reorder_level'] ?? 0;
-        $validated['is_active'] = true;
+        $validated = InventoryItem::validateItemRequest($request);
 
         $item = DB::transaction(function () use ($validated, $request): InventoryItem {
             $item = InventoryItem::create($validated);
@@ -143,21 +133,7 @@ class InventoryApiController extends Controller
 
     public function update(Request $request, InventoryItem $item): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category_id' => 'required|exists:inventory_categories,id',
-            'unit_id' => 'required|exists:units,id',
-            'sku' => 'nullable|string|max:100|unique:inventory_items,sku,' . $item->id,
-            'description' => 'nullable|string|max:2000',
-            'current_quantity' => 'required|numeric|min:0|max:999999999.999',
-            'minimum_stock_level' => 'required|numeric|min:0|max:999999999.999',
-            'reorder_level' => 'nullable|numeric|min:0|max:999999999.999',
-        ]);
-
-        if (empty($validated['sku'])) {
-            $validated['sku'] = $item->sku;
-        }
-        $validated['reorder_level'] = $validated['reorder_level'] ?? $item->reorder_level ?? 0;
+        $validated = InventoryItem::validateItemRequest($request, $item);
 
         DB::transaction(function () use ($item, $validated, $request): void {
             $item->update($validated);

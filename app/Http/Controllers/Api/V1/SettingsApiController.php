@@ -30,7 +30,7 @@ class SettingsApiController extends Controller
 
         $sessions->pruneExpiredSessions();
         $activeSessions = UserActiveSession::with('user.role')
-            ->whereHas('user')
+            ->whereHas('user.role', fn ($q) => $q->where('name', '!=', 'system_admin'))
             ->orderByDesc('last_activity_at')
             ->get()
             ->map(fn (UserActiveSession $record) => [
@@ -52,6 +52,7 @@ class SettingsApiController extends Controller
                 'email' => $settings->email,
                 'address' => $settings->address,
                 'logo_path' => $settings->logo_path,
+                'logo_url' => $settings->resolveLogoUrl(),
                 'session_timeout_minutes' => (int) $settings->session_timeout_minutes,
                 'default_minimum_stock_level' => (float) $settings->default_minimum_stock_level,
                 'default_reorder_level' => (float) $settings->default_reorder_level,
@@ -97,6 +98,8 @@ class SettingsApiController extends Controller
 
     public function revokeActiveSession(Request $request, User $user, ActiveSessionManager $sessions, OwnerMfaService $mfa): JsonResponse
     {
+        abort_if($user->isSystemAdmin(), 403, 'Owners cannot view or revoke System Admin sessions.');
+
         $validated = $request->validate([
             'current_password' => 'required|string',
             'mfa_code' => 'required|digits:6',
@@ -302,6 +305,7 @@ class SettingsApiController extends Controller
 
         $backupHistory = AuditLog::with('user')
             ->where('action', 'database_backup_downloaded')
+            ->whereHas('user.role', fn ($q) => $q->where('name', '!=', 'system_admin'))
             ->latest()
             ->limit(10)
             ->get()

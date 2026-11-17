@@ -192,7 +192,7 @@ class StaffController extends Controller
                 "Pending staff access request rejected for {$staffMember->username}."
             );
             DB::table('password_resets')->where('email', $staffMember->email)->delete();
-            $staffMember->tokens()->delete();
+            app(\App\Services\ActiveSessionManager::class)->invalidateAllForUser($staffMember);
             $staffMember->delete();
         });
 

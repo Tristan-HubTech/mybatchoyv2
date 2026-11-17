@@ -47,7 +47,7 @@
                 :actionLabel="request()->filled('search') ? 'Clear Search' : '+ Add Supplier'" />
         @else
             <div class="table-responsive">
-                <table class="table eb-table table-hover align-middle">
+                <table class="table eb-table eb-responsive-table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Supplier Name</th>
@@ -70,26 +70,26 @@
                                 })->values()->all();
                             @endphp
                             <tr>
-                                <td>
+                                <td class="eb-cell-primary" data-label="Supplier">
                                     <div class="fw-bold text-white">{{ $supplier->name }}</div>
                                     @if ($supplier->address)
                                         <div class="small" style="color: #BDBDBD; font-size: 0.76rem;">{{ Str::limit($supplier->address, 55) }}</div>
                                     @endif
                                 </td>
-                                <td class="text-white">{{ $supplier->contact_person ?: '—' }}</td>
-                                <td>
+                                <td class="text-white" data-label="Contact">{{ $supplier->contact_person ?: '—' }}</td>
+                                <td data-label="Phone / Email">
                                     <div class="text-white">{{ $supplier->phone ?: '—' }}</div>
                                     @if ($supplier->email)
                                         <div class="small" style="color: #BDBDBD; font-size: 0.76rem;">{{ $supplier->email }}</div>
                                     @endif
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end" data-label="Orders">
                                     <x-status-badge variant="neutral" :label="($supplier->purchases_count ?? 0) . ' ' . Str::plural('order', $supplier->purchases_count ?? 0)" />
                                 </td>
-                                <td class="text-end fw-bold text-warning">
+                                <td class="text-end fw-bold text-warning" data-label="Total Spend">
                                     &#8369;{{ number_format((float) ($supplier->total_spent ?? 0), 2) }}
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end eb-cell-actions">
                                     <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
                                         <button type="button"
                                             class="btn btn-sm btn-outline-light supplier-details-btn"
@@ -202,12 +202,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('suppliersFilterForm');
     if (form) {
         form.addEventListener('submit', function () {
-            const skeleton = document.getElementById('suppliersSkeletonWrapper');
-            const live = document.getElementById('suppliersLiveContent');
-            if (skeleton && live) {
-                skeleton.classList.remove('d-none');
-                live.style.opacity = '0.35';
-                live.style.pointerEvents = 'none';
+            if (typeof window.activatePageSkeleton === 'function') {
+                window.activatePageSkeleton('suppliersSkeletonWrapper', 'suppliersLiveContent');
+            } else {
+                const skeleton = document.getElementById('suppliersSkeletonWrapper');
+                const live = document.getElementById('suppliersLiveContent');
+                if (skeleton && live) {
+                    live.classList.add('d-none');
+                    skeleton.classList.remove('d-none');
+                }
             }
         });
     }

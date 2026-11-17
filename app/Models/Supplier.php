@@ -11,8 +11,17 @@ class Supplier extends Model
 
     protected $fillable = ['name', 'contact_person', 'phone', 'email', 'address', 'notes', 'is_active'];
 
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
     public function purchases()
     {
         return $this->hasMany(Purchase::class);
+    }
+
+    public function accounts()
+    {
+        return $this->hasMany(User::class, 'supplier_id');
     }
 }

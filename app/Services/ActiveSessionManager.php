@@ -46,16 +46,24 @@ class ActiveSessionManager
             return true;
         }
 
-        if (Cache::get($key) === true) {
-            self::$tableExistsMemo[$key] = true;
+        try {
+            if (Cache::get($key) === true) {
+                self::$tableExistsMemo[$key] = true;
 
-            return true;
+                return true;
+            }
+        } catch (\Throwable) {
+            // Fall back to direct schema check during pre-migration bootstrap.
         }
 
         $exists = Schema::hasTable($table);
         if ($exists) {
             self::$tableExistsMemo[$key] = true;
-            Cache::put($key, true, 600);
+            try {
+                Cache::put($key, true, 600);
+            } catch (\Throwable) {
+                // Non-fatal if cache store is not yet initialized.
+            }
         }
 
         return $exists;
@@ -188,7 +196,7 @@ class ActiveSessionManager
     public function validateApiRequest(User $user): array
     {
         $token = $user->currentAccessToken();
-        if (!($token instanceof PersonalAccessToken)) {
+        if (!($token instanceof PersonalAccessToken) || !$token->exists) {
             return ['valid' => true];
         }
 
@@ -277,7 +285,43 @@ class ActiveSessionManager
             UserActiveSession::where('user_id', $user->id)->delete();
         }
 
+        $this->revokeObsoleteDatabaseSessions($user);
+
         $user->tokens()->delete();
+    }
+
+    public function invalidateOtherSessionsExceptApiToken(User $user, int|string|null $keepTokenId): void
+    {
+        if ($keepTokenId === null) {
+            $this->invalidateAllForUser($user);
+
+            return;
+        }
+
+        $user->tokens()->where('id', '!=', $keepTokenId)->delete();
+
+        if (self::hasTable('user_active_sessions')) {
+            UserActiveSession::where('user_id', $user->id)
+                ->where('session_hash', '!=', $this->hashApiTokenId($keepTokenId))
+                ->delete();
+        }
+
+        $this->revokeObsoleteDatabaseSessions($user);
+    }
+
+    public function revokeObsoleteDatabaseSessions(User $user, ?string $preserveSessionId = null): void
+    {
+        $sessionTable = (string) config('session.table', 'sessions');
+        if (config('session.driver') !== 'database' || !self::hasTable($sessionTable)) {
+            return;
+        }
+
+        $query = DB::table($sessionTable)->where('user_id', $user->id);
+        if ($preserveSessionId !== null && $preserveSessionId !== '') {
+            $query->where('id', '!=', $preserveSessionId);
+        }
+
+        $query->delete();
     }
 
     /**
@@ -293,6 +337,7 @@ class ActiveSessionManager
 
         $request->session()->regenerate(true);
         $request->session()->put('password_hash_' . Auth::getDefaultDriver(), $user->getAuthPassword());
+        $this->revokeObsoleteDatabaseSessions($user, $request->session()->getId());
 
         if (!self::hasTable('user_active_sessions')) {
             return;
@@ -326,6 +371,14 @@ class ActiveSessionManager
 
     public function revokeByOwner(User $targetUser, User $actor, Request $request): void
     {
+        if (!$actor->isOwner()) {
+            abort(403, 'Only the business Owner may use Owner session recovery.');
+        }
+
+        if ($targetUser->isSystemAdmin()) {
+            abort(403, 'Owners cannot view or revoke System Admin sessions.');
+        }
+
         DB::transaction(function () use ($targetUser, $actor, $request): void {
             $this->invalidateAllForUser($targetUser);
             $targetUser->forceFill(['remember_token' => Str::random(60)])->save();
@@ -335,10 +388,32 @@ class ActiveSessionManager
                 'action' => 'session_revoked',
                 'model_type' => User::class,
                 'model_id' => $targetUser->id,
-                'details' => "Active login session revoked for account {$targetUser->username} by Owner/Admin recovery.",
+                'details' => "Active login session revoked for account {$targetUser->username} by Owner recovery.",
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
+        });
+    }
+
+    public function revokeBySystemAdmin(User $targetUser, User $actor, Request $request): void
+    {
+        if (!$actor->isSystemAdmin() || !$targetUser->isSystemAdmin()) {
+            abort(403, 'System Admin session recovery only applies to System Admin accounts.');
+        }
+
+        DB::transaction(function () use ($targetUser, $actor, $request): void {
+            $this->invalidateAllForUser($targetUser);
+            $targetUser->forceFill(['remember_token' => Str::random(60)])->save();
+
+            TechnicalAuditLogger::record(
+                $request,
+                $actor->id,
+                'security',
+                'admin_session_revoked',
+                "Active login session revoked for System Admin account {$targetUser->username} via technical security controls.",
+                User::class,
+                $targetUser->id
+            );
         });
     }
 

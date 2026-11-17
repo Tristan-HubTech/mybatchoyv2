@@ -24,6 +24,7 @@ import {
   FilterChips,
   FormField,
   PrimaryButton,
+  ScreenHeader,
   SearchBar,
   SkeletonList,
   StatusBadge,
@@ -166,12 +167,11 @@ export const InventoryScreen: React.FC = () => {
     setSubmitting(true);
     setError(null);
     try {
-      const payload = {
+      const basePayload = {
         name: name.trim(),
         sku: sku.trim() || null,
         category_id: categoryId,
         unit_id: unitId,
-        current_quantity: Number(currentQuantity || 0),
         minimum_stock_level: Number(minimumStockLevel || 0),
         reorder_level: Number(reorderLevel || 0),
         description: description.trim() || null,
@@ -180,14 +180,17 @@ export const InventoryScreen: React.FC = () => {
       if (editingItem) {
         await apiRequest(`/inventory/${editingItem.id}`, {
           method: 'PUT',
-          body: payload,
+          body: basePayload,
           idempotencyKey,
         });
         setSuccess('Inventory item updated successfully.');
       } else {
         await apiRequest('/inventory', {
           method: 'POST',
-          body: payload,
+          body: {
+            ...basePayload,
+            current_quantity: Number(currentQuantity || 0),
+          },
           idempotencyKey,
         });
         setSuccess('Inventory item created successfully.');
@@ -218,22 +221,21 @@ export const InventoryScreen: React.FC = () => {
           />
         }
       >
-        <View style={styles.topRow}>
-          <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.heading}>Manage Stock ({items.length})</Text>
-            <Text style={styles.subHeading}>
-              See current stock amounts. Tap any item to inspect history and levels.
-            </Text>
-          </View>
-          {isOwner && (
-            <PrimaryButton
-              title="+ New Item"
-              icon="add-circle-outline"
-              onPress={openCreateForm}
-              style={{ minHeight: 40, paddingVertical: 6 }}
-            />
-          )}
-        </View>
+        <ScreenHeader
+          section="Inventory"
+          title={`Manage Stock (${items.length})`}
+          subtitle="Check quantities on hand, spot low stock, and inspect item history."
+          rightElement={
+            isOwner ? (
+              <PrimaryButton
+                title="+ New"
+                icon="add-circle-outline"
+                onPress={openCreateForm}
+                style={{ minHeight: 38, paddingVertical: 6, paddingHorizontal: 11 }}
+              />
+            ) : undefined
+          }
+        />
 
         <SearchBar
           value={search}
@@ -447,14 +449,28 @@ export const InventoryScreen: React.FC = () => {
                 onSelect={(k) => setUnitId(Number(k))}
               />
 
-              <FormField
-                label="4. Current Quantity on Hand"
-                value={currentQuantity}
-                onChangeText={setCurrentQuantity}
-                placeholder="e.g. 20"
-                keyboardType="decimal-pad"
-                required
-              />
+              {editingItem ? (
+                <View style={[styles.detailBox, { marginBottom: 12 }]}>
+                  <Text style={styles.detailLine}>
+                    Current Quantity on Hand:{' '}
+                    <Text style={styles.detailBold}>
+                      {editingItem.current_quantity} {editingItem.unit_short_name}
+                    </Text>
+                  </Text>
+                  <Text style={[styles.itemSub, { marginTop: 2 }]}>
+                    Stock quantity is locked while editing item details. Use Stock Transactions to add, remove, or adjust stock.
+                  </Text>
+                </View>
+              ) : (
+                <FormField
+                  label="4. Current Quantity on Hand"
+                  value={currentQuantity}
+                  onChangeText={setCurrentQuantity}
+                  placeholder="e.g. 20"
+                  keyboardType="decimal-pad"
+                  required
+                />
+              )}
               <FormField
                 label="5. Minimum Stock (Warn when below this number)"
                 value={minimumStockLevel}

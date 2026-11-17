@@ -33,6 +33,14 @@ class OwnerMfaService
             ]);
         }
 
+        if (!MailTransportGuard::isSafeForOtp()) {
+            Log::warning('Owner MFA email not sent because the configured mail transport does not support secure live delivery.');
+
+            throw ValidationException::withMessages([
+                'mfa_code' => ['Email verification codes are unavailable because production SMTP mail is not configured. Use your Authenticator app or configure SMTP mail settings.'],
+            ]);
+        }
+
         RateLimiter::hit($rateKey, 300);
 
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);

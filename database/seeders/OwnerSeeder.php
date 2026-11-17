@@ -14,6 +14,10 @@ class OwnerSeeder extends Seeder
      */
     public function run(): void
     {
+        if (app()->isProduction()) {
+            throw new \RuntimeException('OwnerSeeder contains development credentials and cannot execute in production. Run "php artisan app:create-owner" instead.');
+        }
+
         // Find the "owner" role (must exist from earlier migrations)
         $ownerRole = Role::where('name', 'owner')->first();
         if (! $ownerRole) {

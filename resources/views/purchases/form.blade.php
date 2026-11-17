@@ -81,15 +81,24 @@
                 </div>
             </div>
 
-            <div class="mt-3">
-                <label class="form-label" for="purchaseNotes">4. Notes / Receipt Reference (optional)</label>
-                <input id="purchaseNotes" type="text" name="notes" class="form-control" value="{{ old('notes') }}" placeholder="e.g., Paid cash, Receipt #402">
+            <div class="row g-3 mt-1">
+                <div class="col-md-5">
+                    <label class="form-label" for="fulfillmentMode">4. Fulfillment Workflow</label>
+                    <select id="fulfillmentMode" name="fulfillment_mode" class="form-select">
+                        <option value="direct_received" @selected(old('fulfillment_mode', 'direct_received') === 'direct_received')>Direct / Walk-in Received (Add Stock Immediately)</option>
+                        <option value="supplier_po" @selected(old('fulfillment_mode') === 'supplier_po')>Assign to Supplier Portal (Await Confirmation &amp; Delivery)</option>
+                    </select>
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label" for="purchaseNotes">5. Notes / Receipt Reference (optional)</label>
+                    <input id="purchaseNotes" type="text" name="notes" class="form-control" value="{{ old('notes') }}" placeholder="e.g., Paid cash, Receipt #402">
+                </div>
             </div>
 
             <div class="mt-4 p-3 rounded-3 d-flex flex-wrap justify-content-between align-items-center" style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.35);">
                 <div>
                     <div class="fw-bold text-white">Total Purchase Amount</div>
-                    <small class="muted">Saving will update your stock automatically.</small>
+                    <small class="muted">Direct purchases credit stock immediately; Supplier Portal POs wait for delivery &amp; receiving confirmation.</small>
                 </div>
                 <div class="fs-3 fw-bold text-warning" id="purchaseGrandTotal">₱0.00</div>
             </div>

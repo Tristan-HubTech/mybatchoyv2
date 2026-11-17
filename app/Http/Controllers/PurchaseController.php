@@ -52,7 +52,7 @@ class PurchaseController extends Controller
         }
 
         $totalRecords = (clone $purchases)->count();
-        $combinedTotal = (float) (clone $purchases)->sum('total_amount');
+        $combinedTotal = (float) (clone $purchases)->realized()->sum('total_amount');
 
         return view('purchases.index', [
             'purchases' => $purchases->paginate(15)->withQueryString(),
@@ -76,13 +76,22 @@ class PurchaseController extends Controller
             'supplier_id' => 'nullable|exists:suppliers,id',
             'purchase_date' => 'required|date',
             'notes' => 'nullable|string|max:1000',
+            'fulfillment_mode' => 'nullable|in:direct_received,supplier_po',
             'items' => 'required|array|min:1',
             'items.*.inventory_item_id' => 'required|exists:inventory_items,id',
             'items.*.quantity' => 'required|numeric|min:0.01|max:999999999.999',
             'items.*.unit_cost' => 'required|numeric|min:0|max:999999999.99',
         ]);
 
-        DB::transaction(function () use ($validated, $request) {
+        $fulfillmentMode = $validated['fulfillment_mode'] ?? 'direct_received';
+        if ($fulfillmentMode === 'supplier_po' && empty($validated['supplier_id'])) {
+            return back()->withInput()->withErrors([
+                'supplier_id' => 'Please select a supplier when sending a Purchase Order to the Supplier Portal.',
+            ]);
+        }
+
+        DB::transaction(function () use ($validated, $request, $fulfillmentMode) {
+            $isSupplierPo = $fulfillmentMode === 'supplier_po';
             $purchase = Purchase::create([
                 'supplier_id' => $validated['supplier_id'] ?? null,
                 'created_by' => auth()->id(),
@@ -90,6 +99,11 @@ class PurchaseController extends Controller
                 'purchase_date' => $validated['purchase_date'],
                 'notes' => $validated['notes'] ?? null,
                 'total_amount' => 0,
+                'fulfillment_mode' => $fulfillmentMode,
+                'supplier_status' => $isSupplierPo ? 'pending' : 'confirmed',
+                'delivery_status' => $isSupplierPo ? 'awaiting_confirmation' : 'delivered',
+                'received_in_inventory' => !$isSupplierPo,
+                'delivered_at' => $isSupplierPo ? null : now(),
             ]);
 
             $total = 0.0;
@@ -109,23 +123,25 @@ class PurchaseController extends Controller
                     'total_cost' => $lineTotal,
                 ]);
 
-                $previousQuantity = round((float) $inventoryItem->current_quantity, 3);
-                $updatedQuantity = round($previousQuantity + $quantity, 3);
-                $inventoryItem->current_quantity = $updatedQuantity;
-                $inventoryItem->last_counted_at = now();
-                $inventoryItem->save();
+                if (!$isSupplierPo) {
+                    $previousQuantity = round((float) $inventoryItem->current_quantity, 3);
+                    $updatedQuantity = round($previousQuantity + $quantity, 3);
+                    $inventoryItem->current_quantity = $updatedQuantity;
+                    $inventoryItem->last_counted_at = now();
+                    $inventoryItem->save();
 
-                InventoryTransaction::create([
-                    'inventory_item_id' => $inventoryItem->id,
-                    'user_id' => auth()->id(),
-                    'supplier_id' => $purchase->supplier_id,
-                    'transaction_type' => 'stock_in',
-                    'quantity' => $quantity,
-                    'previous_quantity' => $previousQuantity,
-                    'updated_quantity' => $updatedQuantity,
-                    'reason' => 'Purchase (' . $purchase->purchase_number . ')',
-                    'transaction_date' => now(),
-                ]);
+                    InventoryTransaction::create([
+                        'inventory_item_id' => $inventoryItem->id,
+                        'user_id' => auth()->id(),
+                        'supplier_id' => $purchase->supplier_id,
+                        'transaction_type' => 'stock_in',
+                        'quantity' => $quantity,
+                        'previous_quantity' => $previousQuantity,
+                        'updated_quantity' => $updatedQuantity,
+                        'reason' => 'Purchase (' . $purchase->purchase_number . ')',
+                        'transaction_date' => now(),
+                    ]);
+                }
 
                 $total = round($total + $lineTotal, 2);
             }
@@ -134,15 +150,79 @@ class PurchaseController extends Controller
 
             AuditLog::create([
                 'user_id' => auth()->id(),
-                'action' => 'purchase_recorded',
+                'action' => $isSupplierPo ? 'purchase_order_assigned' : 'purchase_recorded',
                 'model_type' => Purchase::class,
                 'model_id' => $purchase->id,
-                'details' => 'Recorded purchase with total amount ' . number_format($total, 2),
+                'details' => ($isSupplierPo ? 'Assigned PO to supplier' : 'Recorded purchase') . ' with total amount ' . number_format($total, 2),
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
         });
 
-        return redirect()->route('owner.purchases.index')->with('success', 'Purchase recorded successfully.');
+        return redirect()->route('owner.purchases.index')->with(
+            'success',
+            $fulfillmentMode === 'supplier_po'
+                ? 'Purchase Order created and sent to the Supplier Portal.'
+                : 'Purchase recorded successfully.'
+        );
+    }
+
+    public function markReceived(Request $request, Purchase $purchase)
+    {
+        if ($purchase->received_in_inventory) {
+            return redirect()->route('owner.purchases.index')->withErrors([
+                'purchase' => 'This purchase has already been received into inventory.',
+            ]);
+        }
+
+        if ($purchase->supplier_status !== 'confirmed') {
+            return redirect()->route('owner.purchases.index')->withErrors([
+                'purchase' => 'Supplier must confirm the Purchase Order before inventory receipt.',
+            ]);
+        }
+
+        DB::transaction(function () use ($purchase, $request): void {
+            $purchase->loadMissing('items');
+            foreach ($purchase->items as $line) {
+                $inventoryItem = InventoryItem::whereKey($line->inventory_item_id)->lockForUpdate()->firstOrFail();
+                $previousQuantity = round((float) $inventoryItem->current_quantity, 3);
+                $updatedQuantity = round($previousQuantity + (float) $line->quantity, 3);
+                $inventoryItem->update([
+                    'current_quantity' => $updatedQuantity,
+                    'last_counted_at' => now(),
+                ]);
+
+                InventoryTransaction::create([
+                    'inventory_item_id' => $inventoryItem->id,
+                    'user_id' => $request->user()->id,
+                    'supplier_id' => $purchase->supplier_id,
+                    'transaction_type' => 'stock_in',
+                    'quantity' => $line->quantity,
+                    'previous_quantity' => $previousQuantity,
+                    'updated_quantity' => $updatedQuantity,
+                    'reason' => 'Supplier PO Received (' . $purchase->purchase_number . ')',
+                    'transaction_date' => now(),
+                ]);
+            }
+
+            $purchase->update([
+                'delivery_status' => 'delivered',
+                'delivered_at' => $purchase->delivered_at ?? now(),
+                'received_in_inventory' => true,
+            ]);
+
+            AuditLog::create([
+                'user_id' => $request->user()->id,
+                'action' => 'purchase_received_into_inventory',
+                'model_type' => Purchase::class,
+                'model_id' => $purchase->id,
+                'details' => "Owner received PO {$purchase->purchase_number} into inventory.",
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+        });
+
+        return redirect()->route('owner.purchases.index')
+            ->with('success', "Purchase Order {$purchase->purchase_number} marked received and stock updated.");
     }
 }

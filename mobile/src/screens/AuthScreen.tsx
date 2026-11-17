@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,7 +13,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { apiRequest, getApiBaseUrl, setApiBaseUrl } from '../services/api';
+import {
+  IS_DEV_MODE,
+  apiRequest,
+  getApiBaseUrl,
+  getApiPresets,
+  setApiBaseUrl,
+  testApiConnection,
+} from '../services/api';
 import { COLORS } from '../theme/colors';
 import { BannerMessage, FormField, PrimaryButton } from '../components/UI';
 
@@ -37,9 +45,19 @@ export const AuthScreen: React.FC = () => {
 
   const [serverModalVisible, setServerModalVisible] = useState(false);
   const [serverUrl, setServerUrl] = useState('');
+  const [testingUrl, setTestingUrl] = useState(false);
+  const [serverTestMsg, setServerTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const presets = IS_DEV_MODE ? getApiPresets() : [];
 
   useEffect(() => {
-    getApiBaseUrl().then(setServerUrl);
+    getApiBaseUrl()
+      .then(setServerUrl)
+      .catch((err: any) => {
+        setServerUrl('');
+        if (!IS_DEV_MODE) {
+          setError(err?.message || 'App build is missing a valid HTTPS EXPO_PUBLIC_API_URL.');
+        }
+      });
   }, []);
 
   const handleLogin = async () => {
@@ -119,10 +137,29 @@ export const AuthScreen: React.FC = () => {
   };
 
   const handleSaveServerUrl = async () => {
+    setTestingUrl(true);
+    setServerTestMsg(null);
     const saved = await setApiBaseUrl(serverUrl);
     setServerUrl(saved);
-    setServerModalVisible(false);
-    setSuccess(`Connected API endpoint updated to ${saved}`);
+    const result = await testApiConnection(saved);
+    setTestingUrl(false);
+
+    if (result.ok) {
+      setServerModalVisible(false);
+      setError(null);
+      setSuccess(result.message);
+    } else {
+      setServerTestMsg({ ok: false, text: result.message });
+    }
+  };
+
+  const handleTestOnly = async () => {
+    setTestingUrl(true);
+    setServerTestMsg(null);
+    const result = await testApiConnection(serverUrl);
+    setServerUrl(result.url);
+    setTestingUrl(false);
+    setServerTestMsg({ ok: result.ok, text: result.message });
   };
 
   return (
@@ -133,13 +170,20 @@ export const AuthScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.brandHeader}>
           <View style={styles.logoCircle}>
-            <Ionicons name="restaurant" size={32} color={COLORS.text} />
+            <Image source={require('../../assets/eustace-mascot.jpg')} style={styles.logoImg} />
           </View>
-          <Text style={styles.brandTitle}>MyBatchoy</Text>
-          <Text style={styles.brandSubtitle}>Inventory Management System</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5 }}>
+            <Text style={styles.brandScript}>Eustace</Text>
+            <Text style={styles.brandTitle}>BATCHOY</Text>
+          </View>
+          <View style={styles.unliBadge}>
+            <Text style={styles.unliText}>UNLI SABAW</Text>
+          </View>
+          <Text style={styles.brandSubtitle}>MyBatchoy Inventory Management System</Text>
         </View>
 
         <View style={styles.card}>
+          <View style={styles.cardTopAccent} />
           <View style={styles.cardTopRow}>
             <Text style={styles.cardTitle}>
               {mode === 'login'
@@ -148,14 +192,34 @@ export const AuthScreen: React.FC = () => {
                 ? 'Password Recovery'
                 : 'Enter 6-Digit Reset Code'}
             </Text>
-            <TouchableOpacity
-              onPress={() => setServerModalVisible(true)}
-              style={styles.serverBtn}
-            >
-              <Ionicons name="server-outline" size={16} color={COLORS.secondary} />
-              <Text style={styles.serverBtnText}>API URL</Text>
-            </TouchableOpacity>
+            {IS_DEV_MODE && (
+              <TouchableOpacity
+                onPress={() => {
+                  setServerTestMsg(null);
+                  setServerModalVisible(true);
+                }}
+                style={styles.serverBtn}
+              >
+                <Ionicons name="server-outline" size={16} color={COLORS.secondary} />
+                <Text style={styles.serverBtnText}>API URL</Text>
+              </TouchableOpacity>
+            )}
           </View>
+
+          {IS_DEV_MODE && serverUrl ? (
+            <TouchableOpacity
+              onPress={() => {
+                setServerTestMsg(null);
+                setServerModalVisible(true);
+              }}
+              style={styles.activeServerRow}
+            >
+              <Ionicons name="radio-button-on" size={12} color={COLORS.success} style={{ marginRight: 6 }} />
+              <Text style={styles.activeServerText} numberOfLines={1}>
+                API: {serverUrl}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
           <BannerMessage
             type="warning"
@@ -304,41 +368,91 @@ export const AuthScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      <Modal
-        visible={serverModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setServerModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Backend API URL (Expo Go)</Text>
-            <Text style={styles.helperText}>
-              On a physical phone using Expo Go, use your computer&apos;s Wi-Fi LAN IP (e.g.
-              http://192.168.1.10/Mybatchoy/public/api/v1).
-            </Text>
-            <FormField
-              label="Server /api/v1 Endpoint"
-              value={serverUrl}
-              onChangeText={setServerUrl}
-              placeholder="http://192.168.1.10/Mybatchoy/public/api/v1"
-            />
-            <View style={{ flexDirection: 'row', marginTop: 8 }}>
-              <PrimaryButton
-                title="Cancel"
-                variant="outline"
-                onPress={() => setServerModalVisible(false)}
-                style={{ flex: 1, marginRight: 8 }}
+      {IS_DEV_MODE && (
+        <Modal
+          visible={serverModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setServerModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Backend API URL</Text>
+              <Text style={styles.helperText}>
+                Pick a quick preset or paste your server URL. Missing /public/api/v1 is fixed automatically.
+              </Text>
+
+              <View style={styles.presetGrid}>
+                {presets.map((preset) => {
+                  const selected = serverUrl === preset.url;
+                  return (
+                    <TouchableOpacity
+                      key={preset.label}
+                      style={[styles.presetBtn, selected && styles.presetBtnActive]}
+                      onPress={() => {
+                        setServerUrl(preset.url);
+                        setServerTestMsg(null);
+                      }}
+                    >
+                      <Text style={[styles.presetLabel, selected && styles.presetLabelActive]}>
+                        {preset.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <FormField
+                label="Server /api/v1 Endpoint"
+                value={serverUrl}
+                onChangeText={setServerUrl}
+                placeholder="http://localhost/Mybatchoy/public/api/v1"
               />
-              <PrimaryButton
-                title="Save URL"
-                onPress={handleSaveServerUrl}
-                style={{ flex: 1 }}
-              />
+
+              {serverTestMsg && (
+                <View
+                  style={[
+                    styles.testMsgBox,
+                    {
+                      borderColor: serverTestMsg.ok ? COLORS.success : COLORS.danger,
+                      backgroundColor: serverTestMsg.ok
+                        ? 'rgba(76, 175, 80, 0.14)'
+                        : 'rgba(229, 57, 53, 0.16)',
+                    },
+                  ]}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 12, lineHeight: 17 }}>
+                    {serverTestMsg.text}
+                  </Text>
+                </View>
+              )}
+
+              <View style={{ flexDirection: 'row', marginTop: 8 }}>
+                <PrimaryButton
+                  title="Cancel"
+                  variant="outline"
+                  onPress={() => setServerModalVisible(false)}
+                  disabled={testingUrl}
+                  style={{ flex: 1, marginRight: 6 }}
+                />
+                <PrimaryButton
+                  title="Test"
+                  variant="secondary"
+                  onPress={handleTestOnly}
+                  loading={testingUrl}
+                  style={{ flex: 1, marginRight: 6 }}
+                />
+                <PrimaryButton
+                  title="Save"
+                  onPress={handleSaveServerUrl}
+                  loading={testingUrl}
+                  style={{ flex: 1 }}
+                />
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -358,31 +472,67 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   logoCircle: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    backgroundColor: COLORS.primary,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
+    overflow: 'hidden',
+    backgroundColor: COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
-  brandTitle: {
+  logoImg: {
+    width: '100%',
+    height: '100%',
+  },
+  brandScript: {
     color: COLORS.text,
-    fontSize: 26,
+    fontSize: 22,
+    fontStyle: 'italic',
+    fontWeight: '700',
+  },
+  brandTitle: {
+    color: COLORS.secondary,
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
+  },
+  unliBadge: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  unliText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.1,
   },
   brandSubtitle: {
     color: COLORS.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 2,
   },
   card: {
     backgroundColor: COLORS.card,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#333333',
     padding: 20,
+    overflow: 'hidden',
+  },
+  cardTopAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: COLORS.primary,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -410,6 +560,55 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     marginLeft: 4,
+  },
+  activeServerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.navBackground,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 12,
+  },
+  activeServerText: {
+    flex: 1,
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  presetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  presetBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.navBackground,
+  },
+  presetBtnActive: {
+    borderColor: COLORS.secondary,
+    backgroundColor: 'rgba(255, 193, 7, 0.14)',
+  },
+  presetLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  presetLabelActive: {
+    color: COLORS.secondary,
+  },
+  testMsgBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 9,
+    marginBottom: 8,
   },
   label: {
     color: COLORS.textSecondary,

@@ -11,6 +11,10 @@ class InventorySeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->isProduction()) {
+            throw new \RuntimeException('InventorySeeder contains demonstration catalog items and cannot execute in production.');
+        }
+
         $categoryNames = [
             'Meat and Poultry',
             'Noodles and Grains',
