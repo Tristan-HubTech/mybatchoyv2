@@ -8,28 +8,33 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            if (!Schema::hasColumn('users', 'supplier_id')) {
+        if (!Schema::hasColumn('users', 'supplier_id')) {
+            Schema::table('users', function (Blueprint $table) {
                 $table->foreignId('supplier_id')
                     ->nullable()
-                    ->after('role_id')
                     ->constrained('suppliers')
                     ->nullOnDelete();
-            }
-        });
+            });
+        }
 
-        Schema::table('purchases', function (Blueprint $table) {
-            if (!Schema::hasColumn('purchases', 'fulfillment_mode')) {
-                $table->string('fulfillment_mode', 24)->default('direct_received')->after('notes');
-                $table->string('supplier_status', 24)->default('confirmed')->after('fulfillment_mode');
-                $table->string('delivery_status', 32)->default('delivered')->after('supplier_status');
-                $table->string('invoice_number', 100)->nullable()->after('delivery_status');
-                $table->text('delivery_notes')->nullable()->after('invoice_number');
-                $table->timestamp('supplier_responded_at')->nullable()->after('delivery_notes');
-                $table->timestamp('delivered_at')->nullable()->after('supplier_responded_at');
-                $table->boolean('received_in_inventory')->default(true)->after('delivered_at');
+        $purchaseColumns = [
+            'fulfillment_mode' => fn(Blueprint $t) => $t->string('fulfillment_mode', 24)->default('direct_received'),
+            'supplier_status' => fn(Blueprint $t) => $t->string('supplier_status', 24)->default('confirmed'),
+            'delivery_status' => fn(Blueprint $t) => $t->string('delivery_status', 32)->default('delivered'),
+            'invoice_number' => fn(Blueprint $t) => $t->string('invoice_number', 100)->nullable(),
+            'delivery_notes' => fn(Blueprint $t) => $t->text('delivery_notes')->nullable(),
+            'supplier_responded_at' => fn(Blueprint $t) => $t->timestamp('supplier_responded_at')->nullable(),
+            'delivered_at' => fn(Blueprint $t) => $t->timestamp('delivered_at')->nullable(),
+            'received_in_inventory' => fn(Blueprint $t) => $t->boolean('received_in_inventory')->default(true),
+        ];
+
+        foreach ($purchaseColumns as $colName => $callback) {
+            if (!Schema::hasColumn('purchases', $colName)) {
+                Schema::table('purchases', function (Blueprint $table) use ($callback) {
+                    $callback($table);
+                });
             }
-        });
+        }
 
         Schema::create('business_access_requests', function (Blueprint $table) {
             $table->id();
